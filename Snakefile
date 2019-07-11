@@ -60,9 +60,9 @@ def get_paired_fqs(wildcards):
     r2 = glob.glob(os.path.join(FASTQ_DIR, "**", sample_id + "*R2_*.fastq.gz"), 
         recursive=True)
     if len(r1) == 0:
-        raise Error(sample_id + "has no matching input fastq file")
+        raise ValueError(sample_id + "has no matching input fastq file")
     if len(r1) > 1:
-        raise Error(sample_id + "has more than one matching input fastq file")
+        raise ValueError(sample_id + "has more than one matching input fastq file")
     return {"read1": r1[0], "read2": r2[0]}
     
 
