@@ -1,0 +1,23 @@
+# path to samplesheet
+samplesheet: samples.csv
+
+library_fasta: sgrna_lib.fa
+
+fastq_dir: fastqs
+
+pDNA_fastqs:
+  - fastqs/pDNA_S1_L001_R1_001.fastq.gz
+
+threads: 4
+
+trimming:
+  tso: AAGCAGTGGTATCAACGCAGAGTACATGGG
+  sgrna_scaffold: GTTTAAGAGCTAAGCTGGAAACAGCATAGCAAGTTTAAAT
+  error_rate: 0.2
+
+cell_barcode:
+  whitelist: /home/rmmeyers/local/cellranger-3.0.2/cellranger-cs/3.0.2/lib/python/cellranger/barcodes/3M-february-2018.txt.gz
+
+dedup_methods: # unique/percentile/cluster/adjacency/directional
+  - unique
+  - directional

@@ -1,0 +1,54 @@
+$schema: "http://json-schema.org/draft-06/schema#"
+
+description: snakemake configuration file
+
+type: object
+
+properties:
+  trimming:
+    type: object
+    properties:
+      tso:
+        type: string
+        # pattern: [ACGTN]+
+      sgrna_scaffold:
+        type: string
+        # pattern: [ACGTN]+
+      error_rate:
+        type: number
+        # minimum: 0
+        # maximum: 0.5
+
+  cell_barcode:
+    type: object
+    properties:
+      whitelist:
+        type: string
+
+  dedup_methods:
+    type: array
+    items:
+      enum:
+        - unique
+        - percentile
+        - cluster
+        - adjacency
+        - directional
+
+  fastq_dir:
+    type: string
+
+  library_fasta:
+    type: string
+
+  samplesheet:
+    type: string
+
+  threads:
+    type: integer
+
+required:
+  - fastq_dir
+  - library_fasta
+  - samplesheet
+  - threads
