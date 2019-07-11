@@ -37,13 +37,12 @@ singularity: "docker://continuumio/miniconda3"
 wildcard_constraints:
     directory=".+\/",
     sample="[^\/]+"
-#     bedsuffix="bed|bedGraph",
-#     binsize="|".join(BINSIZES.keys())
 
 
 rule all:
     input:
-        expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys())
+        expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys()),
+        "outs/pdna/feature_counts/pDNA.txt"
     run:
         print("hello world! we did it!")
 
@@ -60,12 +59,59 @@ def get_paired_fqs(wildcards):
         recursive=True)
     r2 = glob.glob(os.path.join(FASTQ_DIR, "**", sample_id + "*R2_*.fastq.gz"), 
         recursive=True)
-    if len(r1) == 0 | len(r2) == 0:
+    if len(r1) == 0:
         raise Error(sample_id + "has no matching input fastq file")
-    if len(r1) > 1 | len(r2) > 1:
+    if len(r1) > 1:
         raise Error(sample_id + "has more than one matching input fastq file")
     return {"read1": r1[0], "read2": r2[0]}
     
+
+rule extract_umi_pdna:
+    input: config['pdna_fastq']
+    output: "outs/pdna/umi/pDNA.fastq.gz"
+    params:
+        whitelist = config['cell_barcode']['whitelist']
+    shell:
+        "umi_tools extract --extract-method string "
+        "--bc-pattern NNNNNNNNNN "
+        "--stdin {input} --stdout {output}"
+
+rule trim_reads_pdna:
+    input: "outs/pdna/umi/pDNA.fastq.gz"
+    output: "outs/pdna/trim/pDNA.fastq.gz"
+    threads: THREADS
+    params:
+        u6_promoter = config['trimming']['u6_promoter'],
+        sgrna_scaffold = config['trimming']['sgrna_scaffold'],
+        error_rate = config['trimming']['error_rate']
+    shell:
+        "cutadapt -j {threads} -m 18 --discard-untrimmed "
+        "-g \"{params.u6_promoter}...{params.sgrna_scaffold};max_error_rate={params.error_rate}\" "
+        "-o {output} {input}"
+
+rule feature_counts_pdna:
+    input:
+        bam="outs/pdna/alns/pDNA.bam",
+        bamidx="outs/pdna/alns/pDNA.bam.bai",
+    output:
+        counts="outs/pdna/feature_counts/pDNA.txt",
+        log="outs/pdna/feature_counts/pDNA.log"
+    shell:
+        "umi_tools count --per-contig --stdin={input.bam} --stdout={output.counts} --log={output.log}"
+
+
+rule bowtie_align_pdna:
+    input:
+        donefile = LIBRARY_INDEX_DONEFILE,
+        fastq = "outs/pdna/trim/pDNA.fastq.gz"
+    output:
+        sam = "outs/pdna/alns/pDNA.sam"
+    threads: THREADS
+    params:
+        index = LIBRARY_BASENAME
+    shell:
+        "ml load bowtie; "
+        "bowtie --sam -v 1 -y -a --best -t -p {threads} {params.index} {input.fastq} {output.sam}"
 
 
 rule trim_reads:
@@ -79,7 +125,7 @@ rule trim_reads:
         sgrna_scaffold = config['trimming']['sgrna_scaffold'],
         error_rate = config['trimming']['error_rate']
     shell:
-        "cutadapt -j {threads} --discard-untrimmed "
+        "cutadapt -j {threads} --discard-untrimmed -m 18 --pair-filter=second "
         "-G \"{params.tso}...{params.sgrna_scaffold};max_error_rate={params.error_rate}\" "
         "-o {output.read1} -p {output.read2} {input.read1} {input.read2}"
 
@@ -128,10 +174,10 @@ rule feature_counts:
         bam="outs/alns/{sample}.bam",
         bamidx="outs/alns/{sample}.bam.bai",
     output:
-        bam="outs/feature_counts/{sample}.txt",
+        counts="outs/feature_counts/{sample}.txt",
         log="outs/feature_counts/{sample}.log"
     shell:
-        "umi_tools count --per-contig --per-cell --stdin={input.bam} --stdout={output.bam} --log={output.log}"
+        "umi_tools count --per-contig --per-cell --stdin={input.bam} --stdout={output.counts} --log={output.log}"
 
 
 rule sam_to_bam_sort:

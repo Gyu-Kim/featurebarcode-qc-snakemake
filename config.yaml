@@ -5,14 +5,14 @@ library_fasta: sgrna_lib.fa
 
 fastq_dir: fastqs
 
-pDNA_fastqs:
-  - fastqs/pDNA_S1_L001_R1_001.fastq.gz
+pdna_fastq: fastqs/pDNA_S1_L001_R1_001.fastq.gz
 
 threads: 4
 
 trimming:
   tso: AAGCAGTGGTATCAACGCAGAGTACATGGG
   sgrna_scaffold: GTTTAAGAGCTAAGCTGGAAACAGCATAGCAAGTTTAAAT
+  u6_promoter: GTGGAAAGGACGAAACACCG
   error_rate: 0.2
 
 cell_barcode:
