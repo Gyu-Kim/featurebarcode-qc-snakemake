@@ -42,7 +42,6 @@ wildcard_constraints:
 rule all:
     input:
         "outs/feature_counts.txt",
-        "outs/feature_counts_pDNA.txt",
         "outs/read_stats.csv"
     run:
         print("workflow complete!")
@@ -64,10 +63,12 @@ rule get_read_stats:
 
 rule combine_feature_counts:
     input:
-        expand("outs/feature_counts/{sample}.txt",sample=SAMPLES)
+        expand("outs/feature_counts/{sample}.txt",sample=SAMPLES),
+        "outs/pdna/feature_counts/pDNA.txt"
     output: "outs/feature_counts.txt"
     params:
-        input_string = ','.join(expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys()))
+        input_string = ','.join(expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys()) +
+            ["outs/pdna/feature_counts/pDNA.txt"])
     shell:
         "python scripts/combine_feature_counts.py {params.input_string} {output}"
 
@@ -114,11 +115,9 @@ rule feature_counts_pdna:
         bamidx="outs/pdna/alns/pDNA.bam.bai",
     output:
         counts="outs/pdna/feature_counts/pDNA.txt",
-        counts_final = "outs/feature_counts_pDNA.txt",
         log="outs/pdna/feature_counts/pDNA.log"
     shell:
-        "umi_tools count --per-contig --stdin={input.bam} --stdout={output.counts} --log={output.log}; "
-        "cp {output.counts} {output.counts_final}"
+        "umi_tools count --per-contig --stdin={input.bam} --stdout={output.counts} --log={output.log}"
 
 
 rule bowtie_align_pdna:
