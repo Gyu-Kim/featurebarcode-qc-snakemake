@@ -41,16 +41,35 @@ wildcard_constraints:
 
 rule all:
     input:
-        expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys()),
-        "outs/pdna/feature_counts/pDNA.txt"
+        "outs/feature_counts.txt",
+        "outs/feature_counts_pDNA.txt",
+        "outs/read_stats.csv"
     run:
-        print("hello world! we did it!")
+        print("workflow complete!")
 
-# rule combine_feature_counts:
-#     input:
-#         expand("feature_counts/{sample}.txt",sample=SAMPLES)
-#     run:
-#         print("hello world! we did it!")
+
+rule get_read_stats:
+    input:
+        alns=expand("outs/alns/{sample}.bam", sample=SAMPLES.keys()),
+        counts=expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys())
+    output:
+        "outs/read_stats.csv"
+    params:
+        samplesheet = config['samplesheet'],
+        fastq_dir = FASTQ_DIR,
+        pdna_fastq = config['pdna_fastq']
+    shell:
+        "python scripts/read_stats.py {output} {params.samplesheet} "
+        "{params.fastq_dir} {params.pdna_fastq}"
+
+rule combine_feature_counts:
+    input:
+        expand("outs/feature_counts/{sample}.txt",sample=SAMPLES)
+    output: "outs/feature_counts.txt"
+    params:
+        input_string = ','.join(expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys()))
+    shell:
+        "python scripts/combine_feature_counts.py {params.input_string} {output}"
 
 
 def get_paired_fqs(wildcards):
@@ -95,9 +114,11 @@ rule feature_counts_pdna:
         bamidx="outs/pdna/alns/pDNA.bam.bai",
     output:
         counts="outs/pdna/feature_counts/pDNA.txt",
+        counts_final = "outs/feature_counts_pDNA.txt",
         log="outs/pdna/feature_counts/pDNA.log"
     shell:
-        "umi_tools count --per-contig --stdin={input.bam} --stdout={output.counts} --log={output.log}"
+        "umi_tools count --per-contig --stdin={input.bam} --stdout={output.counts} --log={output.log}; "
+        "cp {output.counts} {output.counts_final}"
 
 
 rule bowtie_align_pdna:
@@ -125,9 +146,9 @@ rule trim_reads:
         sgrna_scaffold = config['trimming']['sgrna_scaffold'],
         error_rate = config['trimming']['error_rate']
     shell:
-        "cutadapt -j {threads} --discard-untrimmed -m 18 --pair-filter=second "
-        "-G \"{params.tso}...{params.sgrna_scaffold};max_error_rate={params.error_rate}\" "
-        "-o {output.read1} -p {output.read2} {input.read1} {input.read2}"
+        "cutadapt -j {threads} --discard-untrimmed -m 18 --pair-filter=first "
+        "-g \"{params.tso}...{params.sgrna_scaffold};max_error_rate={params.error_rate}\" "
+        "-o {output.read2} -p {output.read1} {input.read2} {input.read1}"
 
 rule extract_umi:
     input:
