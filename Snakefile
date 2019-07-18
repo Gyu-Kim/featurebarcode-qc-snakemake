@@ -28,6 +28,7 @@ THREADS = config['threads']
 FASTQ_DIR = config['fastq_dir']
 
 
+
 # Allow users to fix the underlying OS via singularity.
 singularity: "docker://continuumio/miniconda3"
 
@@ -120,8 +121,11 @@ rule feature_counts_pdna:
     output:
         counts="outs/pdna/feature_counts/pDNA.txt",
         log="outs/pdna/feature_counts/pDNA.log"
+    params:
+        dedup_method = config['dedup_method']
     shell:
-        "umi_tools count --per-contig --stdin={input.bam} --stdout={output.counts} --log={output.log}"
+        "umi_tools count --per-contig --method {params.dedup_method} "
+        "--stdin={input.bam} --stdout={output.counts} --log={output.log}"
 
 
 rule bowtie_align_pdna:
@@ -200,8 +204,11 @@ rule feature_counts:
     output:
         counts="outs/feature_counts/{sample}.txt",
         log="outs/feature_counts/{sample}.log"
+    params:
+        dedup_method = config['dedup_method']
     shell:
-        "umi_tools count --per-contig --per-cell --stdin={input.bam} --stdout={output.counts} --log={output.log}"
+        "umi_tools count --per-contig --per-cell --method {params.dedup_method} "
+        "--stdin={input.bam} --stdout={output.counts} --log={output.log}"
 
 
 rule sam_to_bam_sort:

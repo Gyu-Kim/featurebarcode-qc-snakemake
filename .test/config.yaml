@@ -18,6 +18,4 @@ trimming:
 cell_barcode:
   whitelist: /home/rmmeyers/local/cellranger-3.0.2/cellranger-cs/3.0.2/lib/python/cellranger/barcodes/3M-february-2018.txt.gz
 
-dedup_methods: # unique/percentile/cluster/adjacency/directional
-  - unique
-  - directional
+dedup_method: unique # unique/percentile/cluster/adjacency/directional

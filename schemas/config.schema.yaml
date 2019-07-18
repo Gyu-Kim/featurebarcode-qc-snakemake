@@ -27,15 +27,14 @@ properties:
       whitelist:
         type: string
 
-  dedup_methods:
-    type: array
-    items:
-      enum:
-        - unique
-        - percentile
-        - cluster
-        - adjacency
-        - directional
+  dedup_method:
+    type: string
+    enum:
+      - unique
+      - percentile
+      - cluster
+      - adjacency
+      - directional
 
   fastq_dir:
     type: string
