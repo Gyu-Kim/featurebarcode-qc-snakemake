@@ -49,8 +49,12 @@ rule all:
 
 rule get_read_stats:
     input:
+        trim=expand("outs/trim/{sample}_R1.fastq.gz", sample=SAMPLES.keys()),
         alns=expand("outs/alns/{sample}.bam", sample=SAMPLES.keys()),
-        counts=expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys())
+        counts=expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys()),
+        pdna_trim = "outs/pdna/trim/pDNA.fastq.gz",
+        pdna_alns = "outs/pdna/alns/pDNA.bam",
+        pdna_counts = "outs/pdna/feature_counts/pDNA.txt"
     output:
         "outs/read_stats.csv"
     params:
