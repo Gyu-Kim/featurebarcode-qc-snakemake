@@ -4,6 +4,8 @@
 !scripts/common
 !scripts/common/*
 scripts/.snakemake*
+!report/
+!report/*
 !Snakefile
 !schemas
 !schemas/*

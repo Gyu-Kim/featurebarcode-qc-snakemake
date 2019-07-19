@@ -43,28 +43,33 @@ wildcard_constraints:
 rule all:
     input:
         "outs/feature_counts.txt",
-        "outs/read_stats.csv"
+        "outs/read_stats.csv",
+        "outs/featurebarcode-qc-report.html"
     run:
         print("workflow complete!")
 
+rule create_report:
+    input:
+        counts = "outs/feature_counts.txt",
+        stats = "outs/read_stats.csv"
+    output:
+        "outs/featurebarcode-qc-report.html"
+    script:
+        "report/featurebarcode-qc-report.Rmd"
 
 rule get_read_stats:
     input:
-        trim=expand("outs/trim/{sample}_R1.fastq.gz", sample=SAMPLES.keys()),
-        alns=expand("outs/alns/{sample}.bam", sample=SAMPLES.keys()),
-        counts=expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys()),
+        trim = expand("outs/trim/{sample}_R1.fastq.gz", sample=SAMPLES.keys()),
+        alns = expand("outs/alns/{sample}.bam", sample=SAMPLES.keys()),
+        counts = expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys()),
         pdna_trim = "outs/pdna/trim/pDNA.fastq.gz",
         pdna_alns = "outs/pdna/alns/pDNA.bam",
         pdna_counts = "outs/pdna/feature_counts/pDNA.txt"
     output:
         "outs/read_stats.csv"
-    params:
-        samplesheet = config['samplesheet'],
-        fastq_dir = FASTQ_DIR,
-        pdna_fastq = config['pdna_fastq']
     shell:
-        "python scripts/read_stats.py {output} {params.samplesheet} "
-        "{params.fastq_dir} {params.pdna_fastq}"
+        "python scripts/read_stats.py {output} {config[samplesheet]} "
+        "{config[fastq_dir]} {config[pdna_fastq]}"
 
 rule combine_feature_counts:
     input:
@@ -94,8 +99,6 @@ def get_paired_fqs(wildcards):
 rule extract_umi_pdna:
     input: config['pdna_fastq']
     output: "outs/pdna/umi/pDNA.fastq.gz"
-    params:
-        whitelist = config['cell_barcode']['whitelist']
     shell:
         "umi_tools extract --extract-method string "
         "--bc-pattern NNNNNNNNNN "
@@ -121,10 +124,8 @@ rule feature_counts_pdna:
     output:
         counts="outs/pdna/feature_counts/pDNA.txt",
         log="outs/pdna/feature_counts/pDNA.log"
-    params:
-        dedup_method = config['dedup_method']
     shell:
-        "umi_tools count --per-contig --method {params.dedup_method} "
+        "umi_tools count --per-contig --method {config[dedup_method]} "
         "--stdin={input.bam} --stdout={output.counts} --log={output.log}"
 
 
@@ -204,10 +205,8 @@ rule feature_counts:
     output:
         counts="outs/feature_counts/{sample}.txt",
         log="outs/feature_counts/{sample}.log"
-    params:
-        dedup_method = config['dedup_method']
     shell:
-        "umi_tools count --per-contig --per-cell --method {params.dedup_method} "
+        "umi_tools count --per-contig --per-cell --method {config[dedup_method]} "
         "--stdin={input.bam} --stdout={output.counts} --log={output.log}"
 
 

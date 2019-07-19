@@ -1,0 +1,375 @@
+---
+title: "Feature Barcode QC"
+author: "Robin Meyers"
+date: "`r Sys.Date()`"
+output:
+    html_document:
+        code_folding: hide
+---
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = T, message=F, warning=F)
+
+format_si <- function(...) {
+    function(x) {
+        limits <- c(1e-24, 1e-21, 1e-18, 1e-15, 1e-12,
+                    1e-9,  1e-6,  1e-3,  1e0,   1e3,
+                    1e6,   1e9,   1e12,  1e15,  1e18,
+                    1e21,  1e24)
+        prefix <- c("y",   "z",   "a",   "f",   "p",
+                    "n",   "u",   "m",   "",   "k",
+                    "M",   "G",   "T",   "P",   "E",
+                    "Z",   "Y")
+        prefix <- ifelse(prefix != "", paste0(" ", prefix), "")
+
+        # Vector with array indices according to position in intervals
+        i <- findInterval(abs(x), limits, rightmost.closed = T)
+
+        # Set prefix to " " for very small values < 1e-24
+        i <- ifelse(i == 0, which(limits == 1e0), i)
+
+        paste0(format(round(x/limits[i], 1),
+                     trim = TRUE, scientific = FALSE, ...),
+              prefix[i])
+    }
+}
+
+pretty_log10_breaks <- function () {
+    function(x) {
+        top_10 <- ceiling(log10(max(x)))
+        bottom_10 <- floor(log10(min(x)))
+        breaks = 10^rep(bottom_10:top_10, each = 3) * c(1, 2, 
+            5)
+    }
+}
+
+pretty_log10_limits <- function(x) {
+    max_x <- log10(max(x))
+    options_upper_x <- c(10^floor(max_x), 2*10^(floor(max_x)),
+                         5*10^floor(max_x), 10^ceiling(max_x))
+    upper_x <- min(options_upper_x[options_upper_x >= 10^max_x])
+    min_x <- log10(min(x))
+    options_lower_x <- c(10^floor(min_x), 2*10^(floor(min_x)),
+                         5*10^floor(min_x), 10^ceiling(min_x))
+    lower_x <- max(options_lower_x[options_lower_x <= 10^min_x])
+    return(c(lower_x, upper_x))
+}
+
+scale_y_log10_pretty <- function (...)
+{
+    scale_y_continuous(..., trans = scales::log10_trans(),
+                       labels = ifelse(hasArg(labels), labels,
+                                       format_si()),
+                       breaks = ifelse(hasArg(breaks), breaks,
+                                       pretty_log10_breaks()))
+}
+
+```
+
+### Setup
+
+```{r setup}
+### Load other libraries
+library(Biostrings)
+library(magrittr)
+library(tidyverse)
+library(scales)
+library(cowplot)
+
+threads <- snakemake@threads
+
+if (threads > 1) {
+    library(doMC)
+    registerDoMC(cores=threads)
+    do_parallel <- T
+} else {
+    do_parallel <- F
+}
+
+```
+
+### Load data
+
+```{r 'load data', fig.height=5, fig.width=8}
+
+read_stats_raw <- read_csv(snakemake@input$stats)
+feature_counts <- read_tsv(snakemake@input$counts)
+
+```
+
+
+```{r}
+
+read_stats <- read_stats_raw %>% gather(step, count, -name, -id) %>% 
+    group_by(name) %>% 
+    mutate(percent_raw = count / count[step=="reads"])
+
+step_order <- colnames(read_stats_raw %>% select(-name, -id))
+
+```
+
+
+## Read Stats
+
+### Total Reads
+
+```{r fig.width=8, fig.height=4}
+
+pdna_gg <- read_stats %>% 
+    filter(name == "pDNA") %>%
+    ggplot(aes(x=factor(step, levels=step_order),
+               y=count, group=name)) +
+    geom_line(show.legend=F) +
+    geom_point(show.legend=F) +
+    annotation_logticks(sides = 'l') +
+    scale_y_log10_pretty(
+        limits  = pretty_log10_limits(read_stats$count)) +
+    labs(y = "Count",
+         title = "pDNA reads") +
+    theme(axis.title.x = element_blank(),
+          axis.text.x = element_text(angle=45, vjust=1, hjust=1),
+          legend.title = element_blank())
+
+
+sample_gg <- read_stats %>% 
+    filter(name != "pDNA") %>%
+    ggplot(aes(x=factor(step, levels=step_order),
+               y=count, group=name, color=name)) +
+    geom_line(show.legend=F) +
+    geom_point(show.legend=F) +
+    annotation_logticks(sides = 'l') +
+    ggsci::scale_color_nejm() +
+    scale_y_log10_pretty(
+        limits  = pretty_log10_limits(read_stats$count)) +
+    labs(y = "Count",
+         title = "Sample reads") +
+    theme(axis.title.x = element_blank(),
+          axis.text.x = element_text(angle=45, vjust=1, hjust=1),
+          legend.title = element_blank())
+
+plot_grid(pdna_gg, sample_gg)
+
+```
+
+### Percent of raw reads
+
+```{r fig.width=8, fig.height=4}
+
+pdna_gg <- 
+    read_stats %>% 
+        filter(name == "pDNA") %>%
+        ggplot(aes(x=factor(step, levels = step_order),
+                   y=percent_raw, group=name)) +
+        geom_line() +
+        geom_point() +
+        scale_y_continuous(labels = percent_format(accuracy=1),
+            breaks=pretty_breaks(5)) +
+        labs(y = "Percent of raw reads",
+         title = "pDNA reads") +
+        theme(axis.title.x = element_blank(),
+              axis.text.x = element_text(angle=45, vjust=1, hjust=1))
+
+sample_gg <- 
+    read_stats %>% 
+        filter(name != "pDNA") %>%
+        ggplot(aes(x=factor(step, levels = step_order),
+                   y=percent_raw, group=name, color=name)) +
+        geom_line(show.legend=F) +
+        geom_point(show.legend=F) +
+        ggsci::scale_color_nejm() +
+        scale_y_continuous(labels = percent_format(accuracy=1),
+            breaks=pretty_breaks(5)) +
+        labs(y = "Percent of raw reads",
+             title = "Sample reads") +
+        theme(axis.title.x = element_blank(),
+              axis.text.x = element_text(angle=45, vjust=1, hjust=1))
+
+
+plot_grid(pdna_gg, sample_gg)
+
+
+```
+
+
+
+## Number of features per gene target in pDNA
+
+```{r fig.width=4, fig.height=4}
+
+sgrna_lib <- readDNAStringSet(snakemake@config$library_fasta) %>%
+    names() %>%
+    tibble(feature = .) %>%
+    mutate(target = str_match(feature, snakemake@config$target_regex)[,2])
+
+
+pDNA_counts <- feature_counts %>%
+    filter(sample == "pDNA") %>%
+    left_join(sgrna_lib, .) %>%
+    mutate(count = ifelse(is.na(count), 0, count))
+
+num_features_per_target <- pDNA_counts %>%
+    filter(!is.na(target)) %>%
+    group_by(target) %>%
+    summarise(features = sum(count > 0))
+
+num_features_per_target %>%
+    ggplot() +
+    geom_histogram(aes(x = features, y = ..count..), binwidth = 1) +
+    geom_text(stat = "bin", binwidth = 1, vjust = -0.25,
+              aes(x = features, y = ..count.., label = ifelse(..count.. > 0, ..count.., ""))) +
+    scale_x_continuous(breaks = 0:max(num_features_per_target$features),
+                       limits = c(-0.5, max(num_features_per_target$features)+0.5)) +
+    labs(x = "Number of features per target",
+         y = "Targets")
+
+```
+
+## Distribution of pDNA features
+
+```{r fig.width=6, fig.height=5}
+
+quantiles <- c(0.1, 0.25, 0.5, 0.75, 0.9)
+pDNA_quantiles <- quantile(pDNA_counts$count, quantiles)
+
+h_segments <- tibble(x = min(pDNA_counts$count), xend = pDNA_quantiles,
+                                  y = quantiles, yend=quantiles)
+v_segments <- tibble(y = 0, yend = quantiles,
+                                  x = pDNA_quantiles, xend = pDNA_quantiles)
+pDNA_quantile_segments <- bind_rows(h_segments, v_segments)
+pDNA_quantile_labels <- tibble(x = pDNA_quantiles, y = quantiles,
+                               label = paste0(names(pDNA_quantiles), " = ", round(pDNA_quantiles)))
+
+pDNA_counts %>% 
+    ggplot(aes(x=count, y=ecdf(count)(count))) +
+    geom_segment(aes(x=x,xend=xend,y=y,yend=yend),
+                     data=pDNA_quantile_segments, lty=2, color="grey70") +
+    geom_text(aes(x=x, y=y, label=label), vjust=-0.5, hjust=1,
+              data = pDNA_quantile_labels) +
+    geom_line() +
+    scale_y_continuous(limits=c(0,1), breaks=pretty_breaks(5)) +
+    annotation_logticks(sides='b') +
+    scale_x_log10(labels = format_si()) +
+    labs(x="pDNA feature counts", y="Cumulative fraction")
+
+
+```
+
+
+
+```{r}
+
+
+# feature_counts <- ldply(feature_count_files, read_tsv, .id = "sample")
+
+# cell_count_summary <- 
+#     feature_counts %>% 
+#     filter(str_detect(sample, "BAF")) %>% 
+#     group_by(sample, cell) %>% 
+#     summarise(count = sum(count)) %>% 
+#     group_by(sample) %>% 
+#     mutate(rank = min_rank(-count))
+
+
+# cell_count_summary %>% 
+#     ggplot(aes(x = rank, y = count)) +
+#     facet_wrap(~ sample, nrow = 2, scales = "free") +
+#     geom_line() +
+#     scale_x_log10() +
+#     scale_y_log10()
+
+
+# guides_per_cell <- feature_counts %>% 
+#     filter(count >= 10, !str_detect(sample, "CS2")) %>% 
+#     filter(str_detect(sample, "BAF")) %>% 
+#     group_by(sample, cell) %>% 
+#     summarise(guides = length(unique(gene)))
+
+
+# guides_per_cell %>% 
+#     ggplot(aes(guides)) +
+#     geom_histogram(binwidth = 1) +
+#     facet_wrap(~ sample, nrow = 2, scales = "free") + 
+#     scale_x_continuous(breaks=1:7, limits = c(0.5,5.5)) +
+#     scale_y_continuous(limits=c(0, 10500))
+
+```
+
+```{r fig.height=4, fig.width=5}
+# guides_per_cell %>% 
+#     filter(str_detect(sample, "BAF")) %>% 
+#     extract(sample, "Virus", "(\\d+uL)") %>% 
+#     group_by(Virus, guides) %>% 
+#     summarise(n = n()) %>% 
+#     group_by(Virus) %>% 
+#     mutate(frac = n/sum(n)) %>% 
+#     ggplot(aes(x=guides, y=frac, color = Virus)) +
+#     geom_line(size=1) +
+#     scale_x_continuous(breaks=1:7, limits = c(0.5,5.5)) +
+#     scale_y_continuous(expand=c(0,0), limits = c(0,1)) +
+#     theme(legend.position = c(1,1),
+#           legend.justification = c(1,1))
+
+
+```
+
+
+```{r fig.width=8, fig.height=5}
+
+
+# pDNA <- read_csv("./data/raw/plasmid_library/sgRNA_count_table.csv")
+
+# cells_per_guide <- 
+#     feature_counts %>% 
+#     filter(count >= 10) %>% 
+#     mutate(sample = as.character(sample)) %>% 
+#     filter(str_detect(sample, "BAF")) %>% 
+#     group_by(sample, gene) %>% 
+#     summarise(cells = n()) %>% 
+#     ungroup() %>% 
+#     spread(sample, cells, fill=0) %>% 
+#     full_join(pDNA %>% select(gene=Element, pDNA = pDNA_plate2)) %>% 
+#     gather(sample, cells, starts_with("BAF")) %>%
+#     group_by(sample) %>% 
+#     mutate(cells = ifelse(is.na(cells), 0, cells),
+#            rank = min_rank(-cells))
+
+   
+
+# ggplot(cells_per_guide, aes(x=rank, y=cells)) +
+#     geom_line() +
+#     facet_wrap(~ sample, nrow = 2, scales = "free") +
+#     labs(x = "guide")
+
+
+```
+
+```{r fig.width=9, fig.height=4}
+# library(ggrepel)
+# gene_labels <- c("ACTL6A", "ACTB", "SMARCA4", "BMI1", "EZH2", "EED", "NT")
+
+
+# guide_logFC <- cells_per_guide %>% 
+#     group_by(sample) %>% 
+#     mutate(logFC = log2((cells+1)/sum(cells)) - log2((pDNA+1)/sum(pDNA)))
+
+# gene_logFC <- guide_logFC %>% 
+#     rename(guide = gene) %>% 
+#     extract(guide, "gene", "sg(.*)-\\d+") %>% 
+#     group_by(sample, gene) %>% 
+#     summarise(logFC = mean(logFC)) %>% 
+#     extract(sample, into=c("sample", "timepoint"), "BAF-(\\d+uL)-(d\\d)")
+
+# gene_logFC %>% 
+#     spread(sample, logFC) %>% 
+#     mutate(label = ifelse(gene %in% gene_labels, gene, "")) %>% 
+#     ggplot(aes(x=`5uL`, y=`10uL`, label=label)) +
+#     facet_wrap(~ timepoint, nrow=1, scales="free") +
+#     geom_hline(yintercept = 0, color = "grey70", lty=2) +
+#     geom_vline(xintercept = 0, color = "grey70", lty=2) +
+#     geom_point() +
+#     geom_text_repel(box.padding = 0.4,
+#                     point.padding = 0.25,
+#                     min.segment.length = 0.25) +
+#     labs(x="avg logFC (rep1)",
+#          y="avg logFC (rep2)")
+```

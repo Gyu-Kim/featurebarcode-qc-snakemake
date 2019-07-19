@@ -2,6 +2,7 @@
 
 import os
 import sys
+import re
 
 
 def parse_sample_files(sample_files, names):
@@ -32,11 +33,20 @@ def collapse_feature_counts(sample_files, out_file, names):
     print("sample", "feature", "cell", "count", sep="\t", file=o)
 
     for sample,count_file in sample_file_dict.items():
+
         i = open(count_file, 'r')
         header = i.readline()
-        for line in i:
-            o.write(sample + '\t' + line)
+
+        if re.search("\tcell\t", header):
+            for line in i:
+                o.write(sample + '\t' + line)
+        else:
+            for line in i:
+                l = line.split('\t')
+                o.write('\t'.join([sample, l[0], "", l[1]]))
+
         i.close()
+
 
     o.close()
 

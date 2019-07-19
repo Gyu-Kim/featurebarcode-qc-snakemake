@@ -51,6 +51,9 @@ properties:
   threads:
     type: integer
 
+  target_regex:
+    type: string
+
 required:
   - fastq_dir
   - pdna_fastq
