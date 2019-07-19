@@ -34,12 +34,11 @@ format_si <- function(...) {
     }
 }
 
-pretty_log10_breaks <- function () {
+pretty_log10_breaks <- function (scalers = c(1,2,5)) {
     function(x) {
         top_10 <- ceiling(log10(max(x)))
-        bottom_10 <- floor(log10(min(x)))
-        breaks = 10^rep(bottom_10:top_10, each = 3) * c(1, 2, 
-            5)
+        bottom_10 <- floor(log10(min(x[x>0])))
+        breaks = 10^rep(bottom_10:top_10, each = length(scalers)) * scalers
     }
 }
 
@@ -57,11 +56,33 @@ pretty_log10_limits <- function(x) {
 
 scale_y_log10_pretty <- function (...)
 {
-    scale_y_continuous(..., trans = scales::log10_trans(),
-                       labels = ifelse(hasArg(labels), labels,
-                                       format_si()),
-                       breaks = ifelse(hasArg(breaks), breaks,
-                                       pretty_log10_breaks()))
+    
+    scale_args <- list(trans = scales::log10_trans())
+
+    if (!hasArg(labels)) {
+        scale_args$labels <- format_si()
+    }
+    if (!hasArg(breaks)) {
+        scale_args$breaks <- pretty_log10_breaks()
+    }
+
+    do.call(scale_y_continuous, c(scale_args, list(...)))       
+
+}
+
+scale_x_log10_pretty <- function (...)
+{
+    
+    scale_args <- list(trans = scales::log10_trans())
+    
+    if (!hasArg(labels)) {
+        scale_args$labels <- format_si()
+    }
+    if (!hasArg(breaks)) {
+        scale_args$breaks <- pretty_log10_breaks()
+    }
+
+    do.call(scale_x_continuous, c(scale_args, list(...)))
 }
 
 ```
@@ -70,6 +91,7 @@ scale_y_log10_pretty <- function (...)
 
 ```{r setup}
 ### Load other libraries
+library(plyr)
 library(Biostrings)
 library(magrittr)
 library(tidyverse)
@@ -115,15 +137,20 @@ step_order <- colnames(read_stats_raw %>% select(-name, -id))
 
 ```{r fig.width=8, fig.height=4}
 
-pdna_gg <- read_stats %>% 
-    filter(name == "pDNA") %>%
+pdna_read_stats <- read_stats %>% 
+    filter(name == "pDNA")
+
+sample_read_stats <- read_stats %>% 
+    filter(name != "pDNA")
+
+pdna_gg <- pdna_read_stats %>% 
     ggplot(aes(x=factor(step, levels=step_order),
                y=count, group=name)) +
     geom_line(show.legend=F) +
     geom_point(show.legend=F) +
     annotation_logticks(sides = 'l') +
     scale_y_log10_pretty(
-        limits  = pretty_log10_limits(read_stats$count)) +
+        limits  = pretty_log10_limits(pdna_read_stats$count)) +
     labs(y = "Count",
          title = "pDNA reads") +
     theme(axis.title.x = element_blank(),
@@ -131,8 +158,7 @@ pdna_gg <- read_stats %>%
           legend.title = element_blank())
 
 
-sample_gg <- read_stats %>% 
-    filter(name != "pDNA") %>%
+sample_gg <- sample_read_stats %>% 
     ggplot(aes(x=factor(step, levels=step_order),
                y=count, group=name, color=name)) +
     geom_line(show.legend=F) +
@@ -140,7 +166,7 @@ sample_gg <- read_stats %>%
     annotation_logticks(sides = 'l') +
     ggsci::scale_color_nejm() +
     scale_y_log10_pretty(
-        limits  = pretty_log10_limits(read_stats$count)) +
+        limits  = pretty_log10_limits(sample_read_stats$count)) +
     labs(y = "Count",
          title = "Sample reads") +
     theme(axis.title.x = element_blank(),
@@ -248,34 +274,40 @@ pDNA_counts %>%
     geom_line() +
     scale_y_continuous(limits=c(0,1), breaks=pretty_breaks(5)) +
     annotation_logticks(sides='b') +
-    scale_x_log10(labels = format_si()) +
+    scale_x_log10_pretty() +
     labs(x="pDNA feature counts", y="Cumulative fraction")
 
 
 ```
 
+## Feature barcode UMIs per cell
+
+```{r fig.width = 9, fig.height = 3}
+samples_per_row <- 4
+
+cell_count_summary <- 
+    feature_counts %>% 
+    filter(sample != "pDNA") %>%
+    group_by(sample, cell) %>% 
+    summarise(count = sum(count)) %>% 
+    group_by(sample) %>% 
+    mutate(rank = min_rank(-count)) %>%
+    ungroup() %>%
+    mutate(plot_group = ceiling(as.numeric(factor(sample))/samples_per_row))
 
 
-```{r}
+gg_list <- dlply(cell_count_summary, .(plot_group),
+    function(df) {
+        gg <- ggplot(df, aes(x = rank, y = count)) +
+            facet_wrap(~ sample, nrow = 1, scales = "free") +
+            geom_line() +
+            scale_x_log10_pretty(breaks = pretty_log10_breaks(scalers = 1)) +
+            scale_y_log10_pretty(breaks = pretty_log10_breaks()) +
+            theme(strip.background = element_blank())
+    })
 
+l_ply(gg_list, print)
 
-# feature_counts <- ldply(feature_count_files, read_tsv, .id = "sample")
-
-# cell_count_summary <- 
-#     feature_counts %>% 
-#     filter(str_detect(sample, "BAF")) %>% 
-#     group_by(sample, cell) %>% 
-#     summarise(count = sum(count)) %>% 
-#     group_by(sample) %>% 
-#     mutate(rank = min_rank(-count))
-
-
-# cell_count_summary %>% 
-#     ggplot(aes(x = rank, y = count)) +
-#     facet_wrap(~ sample, nrow = 2, scales = "free") +
-#     geom_line() +
-#     scale_x_log10() +
-#     scale_y_log10()
 
 
 # guides_per_cell <- feature_counts %>% 
