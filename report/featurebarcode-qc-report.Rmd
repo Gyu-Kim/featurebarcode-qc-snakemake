@@ -10,9 +10,6 @@ params:
    
 ---
 
-
-
-
 ## Source
 <a download="featurebarcode-qc-report.Rmd" href="`r base64enc::dataURI(file = params$rmd, mime = 'text/rmd', encoding = 'base64')`">R Markdown source file (to produce this document)</a>
 
@@ -157,6 +154,7 @@ if (threads > 1) {
 
 ```{r 'load data', fig.height=5, fig.width=8}
 
+samplesheet <- read_csv(snakemake@config$samplesheet)
 read_stats_raw <- read_csv(snakemake@input$stats)
 feature_counts <- read_tsv(snakemake@input$counts)
 
@@ -569,3 +567,54 @@ gg_list <- dlply(feature_logFC, .(plot_group),
 l_ply(gg_list, print)
 
 ```
+
+
+```{r fig.width=9, fig.height=4}
+
+if ("Condition" %in% colnames(samplesheet)) {
+    conditions_per_row <- 3
+    conditions <- samplesheet$Condition %>% set_names(samplesheet$Name)    
+    
+    combined_cells_per_target <- cells_per_target %>% 
+        mutate(condition = conditions[sample]) %>% 
+        group_by(condition, target, nt, pDNA) %>%
+        summarise(cells = sum(cells)) %>% 
+        mutate(plot_group = ceiling(as.numeric(factor(condition))/conditions_per_row))
+        
+        n_labels <- c("non-targeting"=1, "targeting"=10)
+        
+        feature_logFC <- combined_cells_per_target %>%
+            group_by(condition) %>%
+            mutate(logFC = log2((cells+1)/sum(cells)) - log2((pDNA+1)/sum(pDNA))) %>% 
+            group_by(condition, nt) %>%
+            mutate(label = ifelse(min_rank(logFC) <= n_labels[nt] | 
+                                      min_rank(-logFC) <= n_labels[nt], str_sub(target, 1, 9), "")) %>% 
+            ungroup() %>% 
+            mutate(plot_group = ceiling(as.numeric(factor(condition))/conditions_per_row))
+        
+        
+        gg_list <- dlply(feature_logFC, .(plot_group),
+                         function(df) {
+                             gg <- ggplot(df, aes(x=pDNA, y=logFC, color=nt, label=label)) +
+                                 facet_wrap(~ condition, nrow=1, scales="free") +
+                                 geom_hline(yintercept = 0, color = "grey70", lty=2) +
+                                 geom_point(size = 1, show.legend = F) +
+                                 geom_text_repel(size = 2.5, show.legend = F) +
+                                 scale_x_continuous(labels = format_si()) +
+                                 labs(x="pDNA",
+                                      y="log2 Fold Change") +
+                                 theme(strip.background = element_blank(),
+                                       panel.spacing = unit(12, "pt"),
+                                       strip.text = element_text(margin = margin(0, 0, 2, 0)),
+                                       plot.margin = margin(7, 12, 7, 7))
+                         })
+        
+        l_ply(gg_list, print)
+        
+        
+}
+
+
+```
+
+
