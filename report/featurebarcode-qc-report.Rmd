@@ -11,6 +11,8 @@ params:
 ---
 
 
+
+
 ## Source
 <a download="featurebarcode-qc-report.Rmd" href="`r base64enc::dataURI(file = params$rmd, mime = 'text/rmd', encoding = 'base64')`">R Markdown source file (to produce this document)</a>
 
@@ -528,13 +530,18 @@ cells_per_target <- cells_per_feature %>%
            pDNA = ifelse(is.na(pDNA), 0, pDNA)) %>% 
     group_by(sample, target) %>%
     summarise(pDNA = sum(pDNA),
-              cells = sum(cells))
+              cells = sum(cells)) %>% 
+    mutate(nt = ifelse(str_detect(target, "NonTarget") | str_detect(target, "sgNT"),
+                       "non-targeting", "targeting"))
+
+n_labels <- c("non-targeting"=1, "targeting"=5)
 
 feature_logFC <- cells_per_target %>%
     group_by(sample) %>%
     mutate(logFC = log2((cells+1)/sum(cells)) - log2((pDNA+1)/sum(pDNA))) %>% 
-    mutate(label = ifelse(min_rank(logFC) <= 5 | 
-                              min_rank(-logFC) <= 5, str_sub(target, 1, 9), "")) %>% 
+    group_by(sample, nt) %>% 
+    mutate(label = ifelse(min_rank(logFC) <= n_labels[nt] | 
+                              min_rank(-logFC) <= n_labels[nt], str_sub(target, 1, 9), "")) %>% 
     ungroup() %>% 
     mutate(plot_group = ceiling(as.numeric(factor(sample))/samples_per_row))
     
@@ -544,11 +551,11 @@ feature_logFC <- cells_per_target %>%
 
 gg_list <- dlply(feature_logFC, .(plot_group),
                  function(df) {
-                     gg <- ggplot(df, aes(x=pDNA, y=logFC, label=label)) +
+                     gg <- ggplot(df, aes(x=pDNA, y=logFC, color=nt, label=label)) +
                          facet_wrap(~ sample, nrow=1, scales="free") +
                          geom_hline(yintercept = 0, color = "grey70", lty=2) +
-                         geom_point(size = 1) +
-                         geom_text_repel(size = 2.5) +
+                         geom_point(size = 1, show.legend = F) +
+                         geom_text_repel(size = 2.5, show.legend = F) +
                          scale_x_continuous(labels = format_si()) +
                          labs(x="pDNA",
                               y="log2 Fold Change") +
