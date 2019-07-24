@@ -525,14 +525,15 @@ message("selection")
 
 cells_per_target <- cells_per_feature %>% 
     mutate(target = str_match(feature, snakemake@config$target_regex)[,2]) %>% 
-    mutate(target = ifelse(is.na(target), feature, target),
+    mutate(nt = ifelse(str_detect(feature, "NonTarget") | str_detect(feature, "sgNT") | str_detect(feature, "non_target"),
+                       "non-targeting", "targeting"),
+           target = ifelse(is.na(target) | nt == "non-targeting", feature, target),
            cells = ifelse(is.na(cells), 0, cells),
            pDNA = ifelse(is.na(pDNA), 0, pDNA)) %>% 
-    group_by(sample, target) %>%
+    group_by(sample, target, nt) %>%
     summarise(pDNA = sum(pDNA),
-              cells = sum(cells)) %>% 
-    mutate(nt = ifelse(str_detect(target, "NonTarget") | str_detect(target, "sgNT"),
-                       "non-targeting", "targeting"))
+              cells = sum(cells))
+    
 
 n_labels <- c("non-targeting"=1, "targeting"=5)
 
