@@ -410,6 +410,7 @@ features_per_cell <- feature_counts %>%
     filter(count >= umi_threshold) %>% 
     group_by(sample, cell) %>%
     summarise(features = n()) %>% 
+    ungroup() %>%
     mutate(plot_group = ceiling(as.numeric(factor(sample))/samples_per_row))
 
 total_cells <- features_per_cell %>% 
@@ -546,8 +547,9 @@ gg_list <- dlply(feature_logFC, .(plot_group),
                      gg <- ggplot(df, aes(x=pDNA, y=logFC, label=label)) +
                          facet_wrap(~ sample, nrow=1, scales="free") +
                          geom_hline(yintercept = 0, color = "grey70", lty=2) +
-                         geom_point() +
+                         geom_point(size = 1) +
                          geom_text_repel(size = 2.5) +
+                         scale_x_continuous(labels = format_si()) +
                          labs(x="pDNA",
                               y="log2 Fold Change") +
                          theme(strip.background = element_blank(),
