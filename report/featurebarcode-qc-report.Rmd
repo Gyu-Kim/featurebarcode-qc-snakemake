@@ -178,6 +178,8 @@ step_order <- colnames(read_stats_raw %>% select(-name, -id))
 
 ```{r fig.width=8, fig.height=4}
 
+message("read stats")
+
 pdna_read_stats <- read_stats %>% 
     filter(name == "pDNA")
 
@@ -244,7 +246,6 @@ sample_gg <-
                y=percent_raw, group=name, color=name)) +
     geom_line(show.legend=F) +
     geom_point(show.legend=F) +
-    ggsci::scale_color_nejm() +
     scale_y_continuous(labels = percent_format(accuracy=1),
                        breaks=pretty_breaks(5),
                        limits = range(read_stats$percent_raw)) +
@@ -296,6 +297,7 @@ num_features_per_target %>%
 ## Distribution of pDNA features
 
 ```{r fig.width=6, fig.height=5}
+message("pdna distribution")
 
 quantiles <- c(0.1, 0.25, 0.5, 0.75, 0.9)
 pDNA_quantiles <- quantile(pDNA_counts$count, quantiles)
@@ -331,23 +333,26 @@ pDNA_counts %>%
 ### UMI counts by cell rank
 
 ```{r fig.width = 9, fig.height = 3}
+message("umis per cell")
+
 samples_per_row <- 4
 
 cell_count_summary <- 
     feature_counts %>% 
     filter(sample != "pDNA") %>%
     group_by(sample, cell) %>% 
-    summarise(count = sum(count),
-              num_features = length(unique(feature))) %>% 
+    summarise(count = sum(count)) %>% 
     group_by(sample) %>% 
     mutate(rank = row_number(-count)) %>%
     ungroup() %>%
     mutate(plot_group = ceiling(as.numeric(factor(sample))/samples_per_row))
 
-
 gg_list <- dlply(cell_count_summary, .(plot_group),
                  function(df) {
-                     gg <- ggplot(df, aes(x = rank, y = count)) +
+                     gg <- df %>% 
+                         group_by(sample, count) %>% 
+                         filter(rank == min(rank) | rank == max(rank)) %>% 
+                         ggplot(aes(x = rank, y = count)) +
                          facet_wrap(~ sample, nrow = 1, scales = "free") +
                          geom_line() +
                          scale_x_log10_pretty(breaks = pretty_log10_breaks()) +
@@ -364,6 +369,7 @@ l_ply(gg_list, print)
 ### UMI count distribution
 
 ```{r fig.width = 9, fig.height = 3}
+message("umis per cell distribution")
 
 gg_list <- dlply(cell_count_summary, .(plot_group),
                  function(df) {
@@ -398,6 +404,8 @@ umi_threshold <- 5
 
 ```{r fig.width=9, fig.height=3}
 
+message("unique features per cell")
+
 features_per_cell <- feature_counts %>%
     filter(sample != "pDNA") %>%
     filter(count >= umi_threshold) %>% 
@@ -425,7 +433,8 @@ gg_list <- dlply(features_per_cell, .(plot_group),
                          theme(strip.background = element_blank(),
                                panel.spacing = unit(12, "pt"),
                                strip.text = element_text(margin = margin(0, 0, 2, 0)),
-                               plot.margin = margin(7, 12, 7, 7))
+                               plot.margin = margin(7, 12, 7, 7),
+                               axis.text.y = element_text(size = 8))
                  })
 
 l_ply(gg_list, print)
@@ -437,6 +446,7 @@ l_ply(gg_list, print)
 
 ```{r fig.width=9, fig.height=3}
 
+message("cells per feature")
 
 pDNA <- feature_counts %>% 
     filter(sample == "pDNA") %>%
@@ -509,6 +519,7 @@ l_ply(gg_list, print)
 
 ```{r fig.width=9, fig.height=3}
 
+message("selection")
 
 cells_per_target <- cells_per_feature %>% 
     mutate(target = str_match(feature, snakemake@config$target_regex)[,2]) %>% 
