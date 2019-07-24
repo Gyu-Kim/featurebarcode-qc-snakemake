@@ -410,7 +410,7 @@ features_per_cell <- feature_counts %>%
     filter(sample != "pDNA") %>%
     filter(count >= umi_threshold) %>% 
     group_by(sample, cell) %>%
-    summarise(features = length(unique(feature))) %>% 
+    summarise(features = n()) %>% 
     mutate(plot_group = ceiling(as.numeric(factor(sample))/samples_per_row))
 
 total_cells <- features_per_cell %>% 
