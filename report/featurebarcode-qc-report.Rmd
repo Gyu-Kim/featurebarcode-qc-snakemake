@@ -207,7 +207,6 @@ sample_gg <- sample_read_stats %>%
     geom_line(show.legend=F) +
     geom_point(show.legend=F) +
     annotation_logticks(sides = 'l') +
-    ggsci::scale_color_nejm() +
     scale_y_log10_pretty(
         limits  = pretty_log10_limits(sample_read_stats$count)) +
     labs(y = "Count",
