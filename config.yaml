@@ -16,7 +16,7 @@ trimming:
   error_rate: 0.2
 
 cell_barcode:
-  whitelist: barcodes/3M-february-2018.txt.gz
+  whitelist: assets/3M-february-2018.txt.gz
 
 dedup_method: unique # unique/percentile/cluster/adjacency/directional
 
