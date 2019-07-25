@@ -41,8 +41,6 @@ Run on test data
 ```$ snakemake --directory .test```
 
 
-```
-
 #### Step 2: Configure workflow
 
 Configure the workflow according to your needs via editing the file `config.yaml`. This includes the path to the fasta file of reference feature barcodes, the directory of fastq files, location of plasmid library sequencing, and how targets are specified in the names of the features.
@@ -55,22 +53,22 @@ Ensure the correct conda environment is active with
 
 Test your configuration by performing a dry-run via
 
-    snakemake -n
+```$ snakemake -n```
 
 Execute the workflow locally via
 
-    snakemake --cores $N
+```$ snakemake --cores $N```
 
 using `$N` cores or run it in a cluster environment via
 
-    snakemake --cluster qsub --jobs 100
+```$ snakemake --cluster qsub --jobs 100```
 
 
 # Step 4: Investigate results
 
 After successful execution, you can create a self-contained interactive HTML report with all results via:
 
-    snakemake --report report.html
+```$ snakemake --report report.html```
 
 This report can, e.g., be forwarded to your collaborators.
 
