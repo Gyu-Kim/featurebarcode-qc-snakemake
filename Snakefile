@@ -139,7 +139,6 @@ rule bowtie_align_pdna:
     params:
         index = LIBRARY_BASENAME
     shell:
-        "ml load bowtie; "
         "bowtie --sam -v 1 -y -a --best -t -p {threads} {params.index} {input.fastq} {output.sam}"
 
 
@@ -182,7 +181,6 @@ rule bowtie_build:
     params:
         basename = LIBRARY_BASENAME
     shell:
-        "ml load bowtie; "
         "bowtie-build {input.fasta} {params.basename}"
 
 rule bowtie_align:
@@ -195,7 +193,6 @@ rule bowtie_align:
     params:
         index = LIBRARY_BASENAME
     shell:
-        "ml load bowtie; "
         "bowtie --sam -v 1 -y -a --best -t -p {threads} {params.index} {input.fastq} {output.sam}"
 
 rule feature_counts:
@@ -217,7 +214,6 @@ rule sam_to_bam_sort:
         "{directory}{sample}.bam"
     threads: THREADS
     shell:
-        "ml load samtools; "
         "samtools view -b --threads {threads} {input} | "
         "samtools sort -@ {threads}  -o {output}"
 
@@ -229,5 +225,4 @@ rule samtools_index:
         "{directory}{sample}.bam.bai"
     threads: THREADS
     shell:
-        "ml load samtools; "
         "samtools index -@ {threads} {input}"
