@@ -538,9 +538,10 @@ n_labels <- c("non-targeting"=1, "targeting"=5)
 feature_logFC <- cells_per_target %>%
     group_by(sample) %>%
     mutate(logFC = log2((cells+1)/sum(cells)) - log2((pDNA+1)/sum(pDNA))) %>% 
+    mutate(label = ifelse(nt == "non-targeting", "NT", target)) %>%
     group_by(sample, nt) %>% 
     mutate(label = ifelse(min_rank(logFC) <= n_labels[nt] | 
-                              min_rank(-logFC) <= n_labels[nt], str_sub(target, 1, 9), "")) %>% 
+               min_rank(-logFC) <= n_labels[nt], label, "")) %>% 
     ungroup() %>% 
     mutate(plot_group = ceiling(as.numeric(factor(sample))/samples_per_row))
     
@@ -568,53 +569,143 @@ l_ply(gg_list, print)
 
 ```
 
+```{r results="asis"}
+if ("Condition" %in% colnames(samplesheet)) {
+    cat("## Combined Samples\n")
+}
+```
+
 
 ```{r fig.width=9, fig.height=4}
 
 if ("Condition" %in% colnames(samplesheet)) {
+    
+
     conditions_per_row <- 3
     conditions <- samplesheet$Condition %>% set_names(samplesheet$Name)    
+    
+    
+    
+    combined_cells_per_feature <- cells_per_feature %>%
+        mutate(condition = conditions[sample]) %>% 
+        group_by(condition, feature, pDNA) %>%
+        summarise(cells = sum(cells)) %>% 
+        mutate(plot_group = ceiling(as.numeric(factor(condition))/conditions_per_row))
+    
+    quantiles <- c(0.1, 0.9)
+    annot_df <-
+        combined_cells_per_feature %>% 
+        group_by(condition, plot_group) %>% 
+        do(tibble(q = quantiles,
+                  c = quantile(.$cells, quantiles),
+                  h_x = min(.$cells),
+                  h_xend = c,
+                  h_y = q,
+                  v_y = 0,
+                  v_yend = q,
+                  v_x = c,
+                  l = paste0(q, " = ", c)))
+    
+    gg_list <- dlply(combined_cells_per_feature, .(plot_group),
+                     function(df) {
+                         a <- annot_df %>% filter(plot_group == df$plot_group[1])
+                         gg <- df %>% 
+                             group_by(condition) %>% 
+                             mutate(ecdf = ecdf(cells)(cells)) %>% 
+                             # filter(count > 0) %>% 
+                             ggplot(aes(x=cells, y=ecdf)) +
+                             facet_wrap(~ condition, nrow = 1, scales = "free") +
+                             geom_segment(aes(x=h_x,xend=h_xend,y=h_y,yend=h_y),
+                                          data=a, lty=2, color="grey70") +
+                             geom_segment(aes(x=v_x,xend=v_x,y=v_y,yend=v_yend),
+                                          data=a, lty=2, color="grey70") +
+                             geom_text(aes(x=h_xend, y=h_y, label=l), vjust=-0.5, hjust=1.25,
+                                       data = a, size = 2.5) +
+                             geom_line() +
+                             scale_y_continuous(limits=c(0,1), breaks=pretty_breaks(5)) +
+                             scale_x_continuous(breaks = pretty_breaks(5)) +
+                             # annotation_logticks(sides='b') +
+                             # scale_x_log10_pretty(limits = c(min(pDNA_counts$count[pDNA_counts$count > 0]),
+                             #                                 max(pDNA_counts$count))) +
+                             labs(x="Cells per feature", y="Cumulative fraction") +
+                             theme(strip.background = element_blank(),
+                                   panel.spacing = unit(12, "pt"),
+                                   strip.text = element_text(margin = margin(0, 0, 2, 0)),
+                                   plot.margin = margin(7, 12, 7, 7))
+                     })
+    
+    l_ply(gg_list, print)
+    
+    
+    
+    gg_list <- dlply(combined_cells_per_feature, .(plot_group),
+                     function(df) {
+                         gg <- df %>% 
+                             group_by(condition) %>% 
+                             # filter(count > 0) %>% 
+                             ggplot(aes(x=pDNA, y=cells)) +
+                             facet_wrap(~ condition, nrow = 1, scales = "free") +
+                             
+                             geom_point(size = 1) +
+                             geom_smooth(method = "lm") +
+                             scale_y_continuous(breaks=pretty_breaks(5)) +
+                             scale_x_continuous(breaks = pretty_breaks(5),
+                                                labels = format_si()) +
+                             labs(x="pDNA counts", y="Cell counts") +
+                             theme(strip.background = element_blank(),
+                                   panel.spacing = unit(12, "pt"),
+                                   strip.text = element_text(margin = margin(0, 0, 2, 0)),
+                                   plot.margin = margin(7, 12, 7, 7))
+                     })
+    
+    l_ply(gg_list, print)
+    
+    
+    
     
     combined_cells_per_target <- cells_per_target %>% 
         mutate(condition = conditions[sample]) %>% 
         group_by(condition, target, nt, pDNA) %>%
         summarise(cells = sum(cells)) %>% 
         mutate(plot_group = ceiling(as.numeric(factor(condition))/conditions_per_row))
-        
-        n_labels <- c("non-targeting"=1, "targeting"=10)
-        
-        feature_logFC <- combined_cells_per_target %>%
-            group_by(condition) %>%
-            mutate(logFC = log2((cells+1)/sum(cells)) - log2((pDNA+1)/sum(pDNA))) %>% 
-            group_by(condition, nt) %>%
-            mutate(label = ifelse(min_rank(logFC) <= n_labels[nt] | 
-                                      min_rank(-logFC) <= n_labels[nt], str_sub(target, 1, 9), "")) %>% 
-            ungroup() %>% 
-            mutate(plot_group = ceiling(as.numeric(factor(condition))/conditions_per_row))
-        
-        
-        gg_list <- dlply(feature_logFC, .(plot_group),
-                         function(df) {
-                             gg <- ggplot(df, aes(x=pDNA, y=logFC, color=nt, label=label)) +
-                                 facet_wrap(~ condition, nrow=1, scales="free") +
-                                 geom_hline(yintercept = 0, color = "grey70", lty=2) +
-                                 geom_point(size = 1, show.legend = F) +
-                                 geom_text_repel(size = 2.5, show.legend = F) +
-                                 scale_x_continuous(labels = format_si()) +
-                                 labs(x="pDNA",
-                                      y="log2 Fold Change") +
-                                 theme(strip.background = element_blank(),
-                                       panel.spacing = unit(12, "pt"),
-                                       strip.text = element_text(margin = margin(0, 0, 2, 0)),
-                                       plot.margin = margin(7, 12, 7, 7))
-                         })
-        
-        l_ply(gg_list, print)
-        
-        
+    
+    n_labels <- c("non-targeting"=1, "targeting"=10)
+    
+    feature_logFC <- combined_cells_per_target %>%
+        group_by(condition) %>%
+        mutate(logFC = log2((cells+1)/sum(cells)) - log2((pDNA+1)/sum(pDNA))) %>% 
+        mutate(label = ifelse(nt == "non-targeting", "NT", target)) %>%
+        group_by(condition, nt) %>%
+        mutate(label = ifelse(min_rank(logFC) <= n_labels[nt] | 
+                                  min_rank(-logFC) <= n_labels[nt], label, "")) %>% 
+        ungroup() %>% 
+        mutate(plot_group = ceiling(as.numeric(factor(condition))/conditions_per_row))
+    
+    
+    gg_list <- dlply(feature_logFC, .(plot_group),
+                     function(df) {
+                         gg <- ggplot(df, aes(x=pDNA, y=logFC, color=nt, label=label)) +
+                             facet_wrap(~ condition, nrow=1, scales="free") +
+                             geom_hline(yintercept = 0, color = "grey70", lty=2) +
+                             geom_point(size = 1, show.legend = F) +
+                             geom_text_repel(size = 2.5, show.legend = F) +
+                             scale_x_continuous(labels = format_si()) +
+                             labs(x="pDNA",
+                                  y="log2 Fold Change") +
+                             theme(strip.background = element_blank(),
+                                   panel.spacing = unit(12, "pt"),
+                                   strip.text = element_text(margin = margin(0, 0, 2, 0)),
+                                   plot.margin = margin(7, 12, 7, 7))
+                     })
+    
+    l_ply(gg_list, print)
+    
+    
 }
 
 
 ```
+
+
 
 
