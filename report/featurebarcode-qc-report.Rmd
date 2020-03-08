@@ -15,10 +15,9 @@ params:
 
 ```{r include=FALSE}
 # threads: "`r snakemake@threads`"
-# library_fasta: "`rsnakemake@config$library_fasta`"
+# feature_ref: "`r snakemake@config$feature_ref`"
 # read_stats: "`r snakemake@input$stats`"
 # feature_counts: "`r snakemake@input$counts`"
-# target_regex: "`r snakemake@config$target_regex`"
 knitr::opts_chunk$set(echo = T, message=F, warning=F)
 
 format_si <- function(...) {
@@ -47,6 +46,7 @@ format_si <- function(...) {
 
 pretty_log10_breaks <- function (scalers = NULL, log_breaks = NULL) {
     function(x) {
+
         top_10 <- log10(x[2])
         bottom_10 <- log10(x[1])
         
@@ -265,10 +265,13 @@ plot_grid(pdna_gg, sample_gg)
 
 ```{r fig.width=4, fig.height=4}
 
-sgrna_lib <- readDNAStringSet(snakemake@config$library_fasta) %>%
-    names() %>%
-    tibble(feature = .) %>%
-    mutate(target = str_match(feature, snakemake@config$target_regex)[,2])
+sgrna_lib <- read_csv(snakemake@config$feature_ref) %>%
+    select(feature = id, target = target_gene_name)
+
+# sgrna_lib <- readDNAStringSet(snakemake@config$library_fasta) %>%
+#     names() %>%
+#     tibble(feature = .) %>%
+#     mutate(target = str_match(feature, snakemake@config$target_regex)[,2])
 
 
 pDNA_counts <- feature_counts %>%
@@ -522,9 +525,9 @@ l_ply(gg_list, print)
 message("selection")
 
 cells_per_target <- cells_per_feature %>% 
-    mutate(target = str_match(feature, snakemake@config$target_regex)[,2]) %>% 
-    mutate(nt = ifelse(str_detect(feature, "NonTarget") | str_detect(feature, "sgNT") | str_detect(feature, "non_target"),
-                       "non-targeting", "targeting"),
+    left_join(sgrna_lib) %>%
+    # mutate(target = str_match(feature, snakemake@config$target_regex)[,2]) %>% 
+    mutate(nt = ifelse(target == "Non-Targeting", "non-targeting", "targeting"),
            target = ifelse(is.na(target) | nt == "non-targeting", feature, target),
            cells = ifelse(is.na(cells), 0, cells),
            pDNA = ifelse(is.na(pDNA), 0, pDNA)) %>% 

@@ -5,6 +5,10 @@
 import glob
 import pandas as pd
 from snakemake.utils import validate, min_version
+from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
+from Bio.Seq import Seq
+
 
 ##### load config and sample sheets #####
 
@@ -20,9 +24,11 @@ validate(samples, schema="schemas/samples.schema.yaml")
 
 SAMPLES = dict(zip(samples["Name"], samples["ID"]))
 
-LIBRARY_FASTA = config['library_fasta']
-LIBRARY_BASENAME = "bowtie/" + os.path.splitext(os.path.basename(LIBRARY_FASTA))[0]
-LIBRARY_INDEX_DONEFILE = LIBRARY_BASENAME + ".done"
+
+
+# LIBRARY_FASTA = bowtie
+# LIBRARY_BASENAME = "bowtie/" + os.path.splitext(os.path.basename(LIBRARY_FASTA))[0]
+# LIBRARY_INDEX_DONEFILE = LIBRARY_BASENAME + ".done"
 
 THREADS = config['threads']
 FASTQ_DIR = config['fastq_dir']
@@ -131,13 +137,13 @@ rule feature_counts_pdna:
 
 rule bowtie_align_pdna:
     input:
-        donefile = LIBRARY_INDEX_DONEFILE,
+        donefile = "bowtie/feature_ref.done",
         fastq = "outs/pdna/trim/pDNA.fastq.gz"
     output:
         sam = "outs/pdna/alns/pDNA.sam"
     threads: THREADS
     params:
-        index = LIBRARY_BASENAME
+        index = "bowtie/feature_ref"
     shell:
         "bowtie --sam -v 1 -y -a --best -t -p {threads} {params.index} {input.fastq} {output.sam}"
 
@@ -173,25 +179,38 @@ rule extract_umi:
         "--filter-cell-barcode --whitelist  {params.whitelist}"
 
 
+rule make_library_fasta:
+    input:
+        feature_ref = config['feature_ref']
+    output:
+        fasta = "bowtie/feature_ref.fa"
+    run:
+        feature_ref = pd.read_csv(input.feature_ref).set_index("id", drop=False)
+        feature_seqs = [SeqRecord(Seq(s), id=i, description='')
+            for s, i in zip(feature_ref['sequence'], feature_ref['id'])]
+        with open (output.fasta, 'w') as fa:
+            SeqIO.write(feature_seqs, fa, "fasta")
+
+
 rule bowtie_build:
     input:
-        fasta = LIBRARY_FASTA
+        fasta = "bowtie/feature_ref.fa"
     output:
-        touch(LIBRARY_INDEX_DONEFILE)
+        touch("bowtie/feature_ref.done")
     params:
-        basename = LIBRARY_BASENAME
+        basename = "bowtie/feature_ref"
     shell:
         "bowtie-build {input.fasta} {params.basename}"
 
 rule bowtie_align:
     input:
-        donefile = LIBRARY_INDEX_DONEFILE,
+        donefile = "bowtie/feature_ref.done",
         fastq = "outs/umi/{sample}.fastq.gz"
     output:
         sam = "outs/alns/{sample}.sam"
     threads: THREADS
     params:
-        index = LIBRARY_BASENAME
+        index = "bowtie/feature_ref"
     shell:
         "bowtie --sam -v 1 -y -a --best -t -p {threads} {params.index} {input.fastq} {output.sam}"
 

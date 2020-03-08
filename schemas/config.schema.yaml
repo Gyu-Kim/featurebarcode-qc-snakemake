@@ -42,7 +42,10 @@ properties:
   pdna_fastq:
     type: string
 
-  library_fasta:
+  pdna_only:
+    type: boolean
+
+  feature_ref:
     type: string
 
   samplesheet:
@@ -51,12 +54,10 @@ properties:
   threads:
     type: integer
 
-  target_regex:
-    type: string
-
 required:
   - fastq_dir
   - pdna_fastq
-  - library_fasta
+  - pdna_only
+  - feature_ref
   - samplesheet
   - threads

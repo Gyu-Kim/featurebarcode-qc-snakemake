@@ -1,11 +1,13 @@
 # path to samplesheet
 samplesheet: samples.csv
 
-library_fasta: sgrna_lib.fa
+feature_ref: feature_ref.csv
 
 fastq_dir: fastqs
 
 pdna_fastq: fastqs/pDNA_S1_L001_R1_001.fastq.gz
+
+pdna_only: False
 
 threads: 4
 
