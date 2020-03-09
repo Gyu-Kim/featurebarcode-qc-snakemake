@@ -148,13 +148,18 @@ if (threads > 1) {
     do_parallel <- F
 }
 
+theme_set(theme_cowplot())
 ```
 
 ### Load data
 
 ```{r 'load data', fig.height=5, fig.width=8}
 
-samplesheet <- read_csv(snakemake@config$samplesheet)
+if (snakemake@config$samplesheet != '') {
+    samplesheet <- read_csv(snakemake@config$samplesheet)
+} else {
+    samplesheet <- NULL
+}
 read_stats_raw <- read_csv(snakemake@input$stats)
 feature_counts <- read_tsv(snakemake@input$counts)
 
@@ -180,42 +185,55 @@ step_order <- colnames(read_stats_raw %>% select(-name, -id))
 
 message("read stats")
 
+
 pdna_read_stats <- read_stats %>% 
-    filter(name == "pDNA")
+        filter(name == "pDNA")
+
+if (nrow(pdna_read_stats) > 0) {
+    pdna_gg <- pdna_read_stats %>% 
+        ggplot(aes(x=factor(step, levels=step_order),
+                   y=count, group=name)) +
+        geom_line(show.legend=F) +
+        geom_point(show.legend=F) +
+        annotation_logticks(sides = 'l') +
+        scale_y_log10_pretty(
+            limits  = pretty_log10_limits(pdna_read_stats$count)) +
+        labs(y = "Count",
+             title = "pDNA reads") +
+        theme(axis.title.x = element_blank(),
+              axis.text.x = element_text(angle=45, vjust=1, hjust=1),
+              legend.title = element_blank())
+} else {
+    pdna_gg <- NULL
+}
+
+
 
 sample_read_stats <- read_stats %>% 
     filter(name != "pDNA")
 
-pdna_gg <- pdna_read_stats %>% 
-    ggplot(aes(x=factor(step, levels=step_order),
-               y=count, group=name)) +
-    geom_line(show.legend=F) +
-    geom_point(show.legend=F) +
-    annotation_logticks(sides = 'l') +
-    scale_y_log10_pretty(
-        limits  = pretty_log10_limits(pdna_read_stats$count)) +
-    labs(y = "Count",
-         title = "pDNA reads") +
-    theme(axis.title.x = element_blank(),
-          axis.text.x = element_text(angle=45, vjust=1, hjust=1),
-          legend.title = element_blank())
 
 
-sample_gg <- sample_read_stats %>% 
-    ggplot(aes(x=factor(step, levels=step_order),
-               y=count, group=name, color=name)) +
-    geom_line(show.legend=F) +
-    geom_point(show.legend=F) +
-    annotation_logticks(sides = 'l') +
-    scale_y_log10_pretty(
-        limits  = pretty_log10_limits(sample_read_stats$count)) +
-    labs(y = "Count",
-         title = "Sample reads") +
-    theme(axis.title.x = element_blank(),
-          axis.text.x = element_text(angle=45, vjust=1, hjust=1),
-          legend.title = element_blank())
+if (nrow(sample_read_stats) > 0) {
+    sample_gg <- sample_read_stats %>% 
+        ggplot(aes(x=factor(step, levels=step_order),
+                   y=count, group=name, color=name)) +
+        geom_line(show.legend=F) +
+        geom_point(show.legend=F) +
+        annotation_logticks(sides = 'l') +
+        scale_y_log10_pretty(
+            limits  = pretty_log10_limits(sample_read_stats$count)) +
+        labs(y = "Count",
+             title = "Sample reads") +
+        theme(axis.title.x = element_blank(),
+              axis.text.x = element_text(angle=45, vjust=1, hjust=1),
+              legend.title = element_blank())
+} else {
+    sample_gg <- NULL
+}
 
-plot_grid(pdna_gg, sample_gg)
+do.call(plot_grid, list(pdna_gg, sample_gg))
+# plot_grid(pdna_gg, sample_gg)
 
 ```
 
@@ -223,38 +241,43 @@ plot_grid(pdna_gg, sample_gg)
 
 ```{r fig.width=8, fig.height=4}
 
-pdna_gg <- 
-    read_stats %>% 
-    filter(name == "pDNA") %>%
-    ggplot(aes(x=factor(step, levels = step_order),
-               y=percent_raw, group=name)) +
-    geom_line() +
-    geom_point() +
-    scale_y_continuous(labels = percent_format(accuracy=1),
-                       breaks=pretty_breaks(5),
-                       limits = range(read_stats$percent_raw)) +
-    labs(y = "Percent of raw reads",
-         title = "pDNA reads") +
-    theme(axis.title.x = element_blank(),
-          axis.text.x = element_text(angle=45, vjust=1, hjust=1))
+if (nrow(pdna_read_stats) > 0) {
+    pdna_gg <- 
+        pdna_read_stats %>% 
+        ggplot(aes(x=factor(step, levels = step_order),
+                   y=percent_raw, group=name)) +
+        geom_line() +
+        geom_point() +
+        scale_y_continuous(labels = percent_format(accuracy=1),
+                           breaks=pretty_breaks(5),
+                           limits = range(read_stats$percent_raw)) +
+        labs(y = "Percent of raw reads",
+             title = "pDNA reads") +
+        theme(axis.title.x = element_blank(),
+              axis.text.x = element_text(angle=45, vjust=1, hjust=1))
+}
 
-sample_gg <- 
-    read_stats %>% 
-    filter(name != "pDNA") %>%
-    ggplot(aes(x=factor(step, levels = step_order),
-               y=percent_raw, group=name, color=name)) +
-    geom_line(show.legend=F) +
-    geom_point(show.legend=F) +
-    scale_y_continuous(labels = percent_format(accuracy=1),
-                       breaks=pretty_breaks(5),
-                       limits = range(read_stats$percent_raw)) +
-    labs(y = "Percent of raw reads",
-         title = "Sample reads") +
-    theme(axis.title.x = element_blank(),
-          axis.text.x = element_text(angle=45, vjust=1, hjust=1))
+if (nrow(sample_read_stats) > 0) {
 
+    sample_gg <- 
+        read_stats %>% 
+        filter(name != "pDNA") %>%
+        ggplot(aes(x=factor(step, levels = step_order),
+                   y=percent_raw, group=name, color=name)) +
+        geom_line(show.legend=F) +
+        geom_point(show.legend=F) +
+        scale_y_continuous(labels = percent_format(accuracy=1),
+                           breaks=pretty_breaks(5),
+                           limits = range(read_stats$percent_raw)) +
+        labs(y = "Percent of raw reads",
+             title = "Sample reads") +
+        theme(axis.title.x = element_blank(),
+              axis.text.x = element_text(angle=45, vjust=1, hjust=1))
+}
 
-plot_grid(pdna_gg, sample_gg)
+do.call(plot_grid, list(pdna_gg, sample_gg))
+
+# plot_grid(pdna_gg, sample_gg)
 
 
 ```
@@ -277,20 +300,23 @@ sgrna_lib <- read_csv(snakemake@config$feature_ref) %>%
 pDNA_counts <- feature_counts %>%
     filter(sample == "pDNA") %>%
     left_join(sgrna_lib, .) %>%
-    mutate(count = ifelse(is.na(count), 0, count))
+    mutate(count = ifelse(is.na(count), 0, count)) 
 
 num_features_per_target <- pDNA_counts %>%
     filter(!is.na(target)) %>%
     group_by(target) %>%
-    summarise(features = sum(count > 0))
+    summarise(features = sum(count > 0)) %>%
+    mutate(nt = ifelse(target == "Non-Targeting", "non-targeting", "targeting"))
 
 num_features_per_target %>%
     ggplot() +
+    facet_wrap( ~ nt, scales = "free") +
     geom_histogram(aes(x = features, y = ..count..), binwidth = 1) +
     geom_text(stat = "bin", binwidth = 1, vjust = -0.25,
               aes(x = features, y = ..count.., label = ifelse(..count.. > 0, ..count.., ""))) +
-    scale_x_continuous(breaks = 0:max(num_features_per_target$features),
-                       limits = c(-0.5, max(num_features_per_target$features)+0.5)) +
+    scale_x_continuous(expand = expand_scale(add = 1)) +
+    # scale_x_continuous(breaks = min(num_features_per_target$features) + 1 :max(num_features_per_target$features) + 1,
+    #                    limits = c(-0.5, max(num_features_per_target$features)+0.5)) +
     labs(x = "Number of features per target",
          y = "Targets")
 
@@ -328,6 +354,8 @@ pDNA_counts %>%
     labs(x="pDNA feature counts", y="Cumulative fraction")
 
 
+if (is.null(samplesheet)) knitr::knit_exit()
+
 ```
 
 ## Feature barcode UMIs per cell
@@ -335,6 +363,7 @@ pDNA_counts %>%
 ### UMI counts by cell rank
 
 ```{r fig.width = 9, fig.height = 3}
+
 message("umis per cell")
 
 samples_per_row <- 4
@@ -365,12 +394,15 @@ gg_list <- dlply(cell_count_summary, .(plot_group),
                                plot.margin = margin(7, 12, 7, 7))
                  })
 
+
 l_ply(gg_list, print)
 ```
 
 ### UMI count distribution
 
 ```{r fig.width = 9, fig.height = 3}
+
+
 message("umis per cell distribution")
 
 gg_list <- dlply(cell_count_summary, .(plot_group),
@@ -387,6 +419,8 @@ gg_list <- dlply(cell_count_summary, .(plot_group),
                                axis.text.y = element_blank(),
                                plot.margin = margin(7, 12, 7, 7))
                  })
+
+
 
 l_ply(gg_list, print)
 
@@ -439,6 +473,7 @@ gg_list <- dlply(features_per_cell, .(plot_group),
                                plot.margin = margin(7, 12, 7, 7),
                                axis.text.y = element_text(size = 8))
                  })
+
 
 l_ply(gg_list, print)
 

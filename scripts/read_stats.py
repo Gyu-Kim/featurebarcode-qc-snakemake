@@ -89,39 +89,43 @@ def write_counts_to_output(samples_stats, out_file):
 
 
 def process_stats(args):
+    if (args.samplesheet is None):
+        samples_stats = {}
+    else:
+        samples_stats = create_sample_dict(args.samplesheet)
 
-    samples_stats = create_sample_dict(args.samplesheet)
-
-    # dedup_keys = []
+        # dedup_keys = []
 
 
-    for sample in samples_stats.keys():
+        for sample in samples_stats.keys():
 
-        fastq_file = get_fastq_file(args.fastq_dir, samples_stats[sample]['id'])
-        trim_file = os.path.join(args.trim_dir, sample + "_R1.fastq.gz")
-        alns_file = os.path.join(args.alns_dir, sample + ".bam")
-        # counts_files = glob.glob(os.path.join(counts_dir, sample + "*.txt"))
-        counts_file = os.path.join(args.counts_dir, sample + ".txt")
-        
+            fastq_file = get_fastq_file(args.fastq_dir, samples_stats[sample]['id'])
+            trim_file = os.path.join(args.trim_dir, sample + "_R1.fastq.gz")
+            alns_file = os.path.join(args.alns_dir, sample + ".bam")
+            # counts_files = glob.glob(os.path.join(counts_dir, sample + "*.txt"))
+            counts_file = os.path.join(args.counts_dir, sample + ".txt")
+            
 
-        samples_stats[sample]['reads'] = collect_fastq_count(fastq_file)
-        samples_stats[sample]['trimmed'] = collect_fastq_count(trim_file)
-        samples_stats[sample]['mapped'] = collect_alns_count(alns_file)
-        samples_stats[sample]['dedup'] = collect_dedup_count(counts_file)
+            samples_stats[sample]['reads'] = collect_fastq_count(fastq_file)
+            samples_stats[sample]['trimmed'] = collect_fastq_count(trim_file)
+            samples_stats[sample]['mapped'] = collect_alns_count(alns_file)
+            samples_stats[sample]['dedup'] = collect_dedup_count(counts_file)
 
-        # for count_file in counts_files:
-        #     dedup_method = re.search(sample + "\.?(.*).txt", count_file).group(1)
-        #     dedup_key = "dedup"
-        #     if dedup_method != "":
-        #         dedup_key += "_" + dedup_method
-        #     if not dedup_key in dedup_keys: dedup_keys.append(dedup_key)
-        #     samples_stats[sample][dedup_key] = collect_dedup_count(count_file)
+            # for count_file in counts_files:
+            #     dedup_method = re.search(sample + "\.?(.*).txt", count_file).group(1)
+            #     dedup_key = "dedup"
+            #     if dedup_method != "":
+            #         dedup_key += "_" + dedup_method
+            #     if not dedup_key in dedup_keys: dedup_keys.append(dedup_key)
+            #     samples_stats[sample][dedup_key] = collect_dedup_count(count_file)
 
-    samples_stats['pDNA'] = {"id": "pDNA"}
-    samples_stats['pDNA']['reads'] = collect_fastq_count(args.pdna_fastq)
-    samples_stats['pDNA']['trimmed'] = collect_fastq_count(args.pdna_trim)
-    samples_stats['pDNA']['mapped'] = collect_alns_count(args.pdna_alns)
-    samples_stats['pDNA']['dedup'] = collect_dedup_count(args.pdna_counts)
+
+    if (args.pdna_fastq is not None):
+        samples_stats['pDNA'] = {"id": "pDNA"}
+        samples_stats['pDNA']['reads'] = collect_fastq_count(args.pdna_fastq)
+        samples_stats['pDNA']['trimmed'] = collect_fastq_count(args.pdna_trim)
+        samples_stats['pDNA']['mapped'] = collect_alns_count(args.pdna_alns)
+        samples_stats['pDNA']['dedup'] = collect_dedup_count(args.pdna_counts)
 
     
     write_counts_to_output(samples_stats, args.out_file)
@@ -138,14 +142,18 @@ if __name__ == "__main__":
 
     parser.add_argument('out_file', help = 'Where to write output', type=str)
 
-    parser.add_argument('samplesheet', help='Path to CSV with ID and Name header', type=str)
+    
+    # Optional arguments
 
-    parser.add_argument('fastq_dir', help = 'Where to find demultiplexed fastqs',
+    parser.add_argument('--samplesheet', help='Path to CSV with ID and Name header',
+                        default = None, type=str)
+
+    parser.add_argument('--pdna-fastq', help = 'Where to find pdna fastq',
+                        default = None, type=str)
+
+    parser.add_argument('--fastq-dir', help = 'Where to find demultiplexed fastqs',
                         default="fastqs/", type=str)
 
-    parser.add_argument('pdna_fastq', type=str)
-
-    # Optional arguments
 
     parser.add_argument('--trim-dir', help = 'Where to find aligned bam files',
                         default="outs/trim/", type=str)

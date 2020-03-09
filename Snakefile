@@ -18,11 +18,13 @@ configfile: "config.yaml"
 
 validate(config, schema="schemas/config.schema.yaml")
 
-samples = pd.read_csv(config['samplesheet']).set_index("ID", drop=False)
-validate(samples, schema="schemas/samples.schema.yaml")
-
-
-SAMPLES = dict(zip(samples["Name"], samples["ID"]))
+if config['samplesheet'] != "":
+    samples = pd.read_csv(config['samplesheet']).set_index("ID", drop=False)
+    validate(samples, schema="schemas/samples.schema.yaml")
+    SAMPLES = dict(zip(samples["Name"], samples["ID"]))    
+else:
+    samples = None
+    SAMPLES = {}
 
 
 
@@ -73,9 +75,13 @@ rule get_read_stats:
         pdna_counts = "outs/pdna/feature_counts/pDNA.txt"
     output:
         "outs/read_stats.csv"
+    params:
+        samplesheet = lambda wildcards: "--samplesheet " + config['samplesheet'] if samples is not None else "",
+        pdna_fastq = lambda wildcards: "--pdna-fastq " + config['pdna_fastq'] if config['pdna_fastq'] is not "" else "",
+        fastq_dir = lambda wildcards: "--fastq-dir " + config['fastq_dir'] if config['fastq_dir'] is not "" else ""
     shell:
-        "python scripts/read_stats.py {output} {config[samplesheet]} "
-        "{config[fastq_dir]} {config[pdna_fastq]}"
+        "python scripts/read_stats.py {output} {params.samplesheet} "
+        "{params.pdna_fastq} {params.fastq_dir}"
 
 rule combine_feature_counts:
     input:
@@ -83,8 +89,9 @@ rule combine_feature_counts:
         "outs/pdna/feature_counts/pDNA.txt"
     output: "outs/feature_counts.txt"
     params:
-        input_string = ','.join(expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys()) +
-            ["outs/pdna/feature_counts/pDNA.txt"])
+        input_string = lambda wildcards, input: ','.join(input)
+        # input_string = ','.join(expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys()) +
+        #     ["outs/pdna/feature_counts/pDNA.txt"])
     shell:
         "python scripts/combine_feature_counts.py {params.input_string} {output}"
 
