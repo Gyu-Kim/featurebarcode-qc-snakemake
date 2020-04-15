@@ -7,8 +7,6 @@ fastq_dir: fastqs
 
 pdna_fastq: fastqs/pDNA_S1_L001_R1_001.fastq.gz
 
-pdna_only: False
-
 threads: 4
 
 trimming:
@@ -21,5 +19,3 @@ cell_barcode:
   whitelist: assets/3M-february-2018.txt.gz
 
 dedup_method: unique # unique/percentile/cluster/adjacency/directional
-
-target_regex: "sg\\d+_([^_]+)$"

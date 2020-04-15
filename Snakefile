@@ -1,7 +1,8 @@
 # The main entry point of your workflow.
 # After configuring, running snakemake -n in a clone of this repository should successfully execute a dry-run of the workflow.
 
-
+import re
+import gzip
 import glob
 import pandas as pd
 from snakemake.utils import validate, min_version
@@ -19,12 +20,14 @@ configfile: "config.yaml"
 validate(config, schema="schemas/config.schema.yaml")
 
 if config['samplesheet'] != "":
-    samples = pd.read_csv(config['samplesheet']).set_index("ID", drop=False)
+    samples = pd.read_csv(config['samplesheet']).set_index("Name", drop=False)
     validate(samples, schema="schemas/samples.schema.yaml")
-    SAMPLES = dict(zip(samples["Name"], samples["ID"]))    
+    
+    FEATURE_BC_IDS = dict(zip(samples["Name"], samples["Feature_BC_ID"]))
+    SAMPLE_BC_IDS = dict(zip(samples["Name"], samples["Sample_BC_ID"])) if "Sample_BC_ID" in samples.columns else {}
 else:
     samples = None
-    SAMPLES = {}
+    FEATURE_BC_IDS = {}
 
 
 
@@ -34,6 +37,7 @@ else:
 
 THREADS = config['threads']
 FASTQ_DIR = config['fastq_dir']
+SAMPLE_BC_FASTQ_DIR = config['sample_bc_fastq_dir'] if 'sample_bc_fastq_dir' in config.keys() else FASTQ_DIR
 
 
 
@@ -52,14 +56,22 @@ rule all:
     input:
         "outs/feature_counts.txt",
         "outs/read_stats.csv",
-        "outs/featurebarcode-qc-report.html"
+        "outs/featurebarcode-qc-report.html",
+        "outs/sample_bc/Day0.txt",
+        "outs/sample_bc/Day3.txt",
+        "outs/sample_bc/Mix.txt"
     run:
         print("workflow complete!")
 
+def get_report_deps(wildcards):
+    inputs = {'counts' : "outs/feature_counts.txt",
+              'stats' : 'outs/read_stats.csv'}
+    # if SAMPLE_BC_IDS:
+        # inputs['sample_bc_counts'] = "outs/sample_bc_counts.txt"
+    return inputs
+
 rule create_report:
-    input:
-        counts = "outs/feature_counts.txt",
-        stats = "outs/read_stats.csv"
+    input: unpack(get_report_deps)
     output:
         "outs/featurebarcode-qc-report.html"
     script:
@@ -67,9 +79,9 @@ rule create_report:
 
 rule get_read_stats:
     input:
-        trim = expand("outs/trim/{sample}_R1.fastq.gz", sample=SAMPLES.keys()),
-        alns = expand("outs/alns/{sample}.bam", sample=SAMPLES.keys()),
-        counts = expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys()),
+        trim = expand("outs/trim/{sample}_R1.fastq.gz", sample=FEATURE_BC_IDS.keys()),
+        alns = expand("outs/alns/{sample}.bam", sample=FEATURE_BC_IDS.keys()),
+        counts = expand("outs/feature_counts/{sample}.txt", sample=FEATURE_BC_IDS.keys()),
         pdna_trim = "outs/pdna/trim/pDNA.fastq.gz",
         pdna_alns = "outs/pdna/alns/pDNA.bam",
         pdna_counts = "outs/pdna/feature_counts/pDNA.txt"
@@ -85,8 +97,8 @@ rule get_read_stats:
 
 rule combine_feature_counts:
     input:
-        expand("outs/feature_counts/{sample}.txt",sample=SAMPLES),
-        "outs/pdna/feature_counts/pDNA.txt"
+        expand("outs/feature_counts/{sample}.txt",sample=FEATURE_BC_IDS),
+        "outs/pdna/feature_counts/pDNA.txt" if config['pdna_fastq'] else []
     output: "outs/feature_counts.txt"
     params:
         input_string = lambda wildcards, input: ','.join(input)
@@ -96,17 +108,7 @@ rule combine_feature_counts:
         "python scripts/combine_feature_counts.py {params.input_string} {output}"
 
 
-def get_paired_fqs(wildcards):
-    sample_id = SAMPLES[wildcards.sample]
-    r1 = glob.glob(os.path.join(FASTQ_DIR, "**", sample_id + "_*R1_*.fastq.gz"),
-        recursive=True)
-    r2 = glob.glob(os.path.join(FASTQ_DIR, "**", sample_id + "_*R2_*.fastq.gz"), 
-        recursive=True)
-    if len(r1) == 0:
-        raise ValueError(sample_id + "has no matching input fastq file")
-    if len(r1) > 1:
-        raise ValueError(sample_id + "has more than one matching input fastq file")
-    return {"read1": r1[0], "read2": r2[0]}
+
     
 
 rule extract_umi_pdna:
@@ -129,6 +131,7 @@ rule trim_reads_pdna:
         "cutadapt -j {threads} -m 18 --discard-untrimmed "
         "-g \"{params.u6_promoter}...{params.sgrna_scaffold};max_error_rate={params.error_rate}\" "
         "-o {output} {input}"
+
 
 rule feature_counts_pdna:
     input:
@@ -154,9 +157,95 @@ rule bowtie_align_pdna:
     shell:
         "bowtie --sam -v 1 -y -a --best -t -p {threads} {params.index} {input.fastq} {output.sam}"
 
+def get_paired_fqs_sample_bc(wildcards):
+    sample_bc_id = SAMPLE_BC_IDS[wildcards.sample]
+    r1 = glob.glob(os.path.join(SAMPLE_BC_FASTQ_DIR, "**", sample_bc_id + "_*R1_*.fastq.gz"),
+        recursive=True)
+    r2 = glob.glob(os.path.join(SAMPLE_BC_FASTQ_DIR, "**", sample_bc_id + "_*R2_*.fastq.gz"), 
+        recursive=True)
+    if len(r1) == 0:
+        raise ValueError(sample_bc_id + "has no matching sample barcode fastq file")
+    if len(r1) != len(r2):
+        raise ValueError(sample_bc_id + "has more than one matching sample barcode fastq file")
+    return {"read1": sorted(r1), "read2": sorted(r2)}
+
+rule merge_fastqs_sample_bc:
+    input: unpack(get_paired_fqs_sample_bc)
+    output:
+        read1 = temp("outs/sample_bc/umi/{sample}_merged_R1.fastq.gz"),
+        read2 = temp("outs/sample_bc/umi/{sample}_merged_R2.fastq.gz")
+    shell:
+        "cat {input.read1} > {output.read1}; "
+        "cat {input.read2} > {output.read2}; "
+
+
+rule extract_umi_sample_bc:
+    input:
+        read1 = "outs/sample_bc/umi/{sample}_merged_R1.fastq.gz",
+        read2 = "outs/sample_bc/umi/{sample}_merged_R2.fastq.gz"
+    output: "outs/sample_bc/umi/{sample}.fq.gz"
+    params:
+        whitelist = config['cell_barcode']['whitelist']
+    shell:
+        "umi_tools extract --extract-method regex --read2-stdout "
+        "--bc-pattern '(?P<cell_1>.{{16}})(?P<umi_1>.{{12}})' " 
+        "--bc-pattern2 '.{{8}}(?P<discard_1>.*)' "
+        "--stdin {input.read1} --read2-in {input.read2} --stdout {output} "
+        "--filter-cell-barcode --whitelist  {params.whitelist}"
+
+
+rule sample_bc_flatfile:
+    input: fq="outs/sample_bc/umi/{sample}.fq.gz"
+    output: tsv="outs/sample_bc/umi/{sample}.tsv"
+    run:
+        o = open(output.tsv, 'w')
+        fq = gzip.open(input.fq, 'rt')
+        for bc in SeqIO.parse(fq, 'fastq'):
+            # UMI and Cell BC need to be switched for current version of UMI-tools
+            # extract appends _CB_UMI to the read ID
+            # whereas count_tab command expects format _UMI_CB
+            read_id = re.search("^(.*)_([ACGTN]+)_([ACGTN]+)$", bc.id)
+            new_id = read_id.group(1) + "_" + read_id.group(3) + "_" + read_id.group(2)
+            o.write(new_id + '\t' + str(bc.seq) + '\n')
+        o.close()
+        os.system("sort -k2,2 -o " + output.tsv + " " + output.tsv)
+
+
+rule sample_bc_counts:
+    input:
+        tsv="outs/sample_bc/umi/{sample}.tsv"
+    output:
+        counts="outs/sample_bc/{sample}.txt",
+        log="outs/sample_bc/{sample}.log"
+    shell:
+        "umi_tools count_tab --per-cell --method {config[dedup_method]} "
+        "--stdin={input.tsv} --stdout={output.counts} --log={output.log}"
+
+def get_paired_fqs(wildcards):
+    sample_id = FEATURE_BC_IDS[wildcards.sample]
+    r1 = glob.glob(os.path.join(FASTQ_DIR, "**", sample_id + "_*R1_*.fastq.gz"),
+        recursive=True)
+    r2 = glob.glob(os.path.join(FASTQ_DIR, "**", sample_id + "_*R2_*.fastq.gz"), 
+        recursive=True)
+    if len(r1) == 0:
+        raise ValueError(sample_id + " has no matching input fastq file")
+    if len(r1) != len(r2):
+        raise ValueError(sample_id + " has different numbers of R1 and R2 fastq files")
+    return {"read1": sorted(r1), "read2": sorted(r2)}
+
+rule merge_fastqs:
+    input: unpack(get_paired_fqs)
+    output:
+        read1 = temp("outs/trim/{sample}_merged_R1.fastq.gz"),
+        read2 = temp("outs/trim/{sample}_merged_R2.fastq.gz")
+    shell:
+        "cat {input.read1} > {output.read1}; "
+        "cat {input.read2} > {output.read2}; "
 
 rule trim_reads:
-    input: unpack(get_paired_fqs)
+    input:
+        read1 = "outs/trim/{sample}_merged_R1.fastq.gz",
+        read2 = "outs/trim/{sample}_merged_R2.fastq.gz"
     output:
         read1 = "outs/trim/{sample}_R1.fastq.gz",
         read2 = "outs/trim/{sample}_R2.fastq.gz"
@@ -243,7 +332,7 @@ rule sam_to_bam_sort:
         "samtools view -b --threads {threads} {input} | "
         "samtools sort -@ {threads}  -o {output}"
 
-
+    
 rule samtools_index:
     input:
         "{directory}{sample}.bam"

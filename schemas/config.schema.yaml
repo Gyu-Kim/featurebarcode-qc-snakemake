@@ -42,9 +42,6 @@ properties:
   pdna_fastq:
     type: string
 
-  pdna_only:
-    type: boolean
-
   feature_ref:
     type: string
 
@@ -56,8 +53,7 @@ properties:
 
 required:
   - fastq_dir
-  - pdna_fastq
-  - pdna_only
+  # - pdna_fastq
   - feature_ref
   - samplesheet
   - threads

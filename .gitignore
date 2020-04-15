@@ -28,3 +28,4 @@ scripts/.snakemake*
 !.travis.yml
 !.test
 !.test/*
+.Rproj.user
