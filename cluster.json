@@ -8,7 +8,7 @@
         "ntasks" : 1,
         "mem" : "16gb",
         "cpus_per_task": "{config[threads]}",
-        "output" : "results/cluster_logs/{rule}.{wildcards}.log"
+        "output" : "cluster_logs/{rule}.{wildcards}.log"
     },
 
     "feature_counts" :
