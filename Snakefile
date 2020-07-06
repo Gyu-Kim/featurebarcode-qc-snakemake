@@ -56,10 +56,7 @@ rule all:
     input:
         "outs/feature_counts.txt",
         "outs/read_stats.csv",
-        "outs/featurebarcode-qc-report.html",
-        "outs/sample_bc/Day0.txt",
-        "outs/sample_bc/Day3.txt",
-        "outs/sample_bc/Mix.txt"
+        "outs/featurebarcode-qc-report.html"
     run:
         print("workflow complete!")
 
