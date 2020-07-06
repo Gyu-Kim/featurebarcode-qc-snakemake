@@ -52,6 +52,9 @@ wildcard_constraints:
     sample="[^\/]+"
 
 
+localrules: all, combine_feature_counts, merge_fastqs, merge_fastqs_sample_bc, sample_bc_flatfile, make_library_fasta
+
+
 rule all:
     input:
         "outs/feature_counts.txt",

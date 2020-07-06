@@ -10,6 +10,7 @@ scripts/.snakemake*
 !schemas
 !schemas/*
 !config.yaml
+!cluster.json
 !samples.tsv
 !resources
 !resources/*

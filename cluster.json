@@ -1,0 +1,50 @@
+{
+    "__default__" :
+    {
+        "job_name" : "{rule}_{wildcards}",
+        "account" : "khavari",
+        "time" : "4:00:00",
+        "partition" : "apps_khavari",
+        "ntasks" : 1,
+        "mem" : "16gb",
+        "cpus_per_task": "{config[threads]}",
+        "output" : "results/cluster_logs/{rule}.{wildcards}.log"
+    },
+
+    "feature_counts" :
+    {
+        "cpus_per_task" : 1
+    },
+    "bowtie_build" :
+    {
+        "cpus_per_task" : 1
+    },
+    "extract_umi" :
+    {
+        "cpus_per_task" : 1
+    },
+    "sample_bc_counts" :
+    {
+        "cpus_per_task" : 1
+    },
+    "extract_umi_sample_bc" :
+    {
+        "cpus_per_task" : 1
+    },
+    "feature_counts_pdna" :
+    {
+        "cpus_per_task" : 1
+    },
+    "extract_umi_pdna" :
+    {
+        "cpus_per_task" : 1
+    },
+    "get_read_stats" :
+    {
+        "cpus_per_task" : 1
+    },
+    "create_report" :
+    {
+        "cpus_per_task" : 1
+    },
+}
