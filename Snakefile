@@ -4,6 +4,7 @@
 import re
 import gzip
 import glob
+import csv
 import pandas as pd
 from snakemake.utils import validate, min_version
 from Bio import SeqIO
@@ -82,8 +83,8 @@ rule get_read_stats:
         trim = expand("outs/trim/{sample}_R1.fastq.gz", sample=FEATURE_BC_IDS.keys()),
         alns = expand("outs/alns/{sample}.bam", sample=FEATURE_BC_IDS.keys()),
         counts = expand("outs/feature_counts/{sample}.txt", sample=FEATURE_BC_IDS.keys()),
-        pdna_trim = "outs/pdna/trim/pDNA.fastq.gz",
-        pdna_alns = "outs/pdna/alns/pDNA.bam",
+        # pdna_trim = "outs/pdna/trim/pDNA.fastq.gz",
+        # pdna_alns = "outs/pdna/alns/pDNA.bam",
         pdna_counts = "outs/pdna/feature_counts/pDNA.txt"
     output:
         "outs/read_stats.csv"
@@ -133,16 +134,36 @@ rule trim_reads_pdna:
         "-o {output} {input}"
 
 
+
+
+def check_pdna_fastq(wildcards):
+    if (config['pdna_fastq'] is not ""):
+        return {'bam': "outs/pdna/alns/pDNA.bam", 'bamidx': "outs/pdna/alns/pDNA.bam.bai"}
+    else:
+        return {'feature_ref': config['feature_ref']}
+
+
 rule feature_counts_pdna:
-    input:
-        bam="outs/pdna/alns/pDNA.bam",
-        bamidx="outs/pdna/alns/pDNA.bam.bai",
+    input: unpack(check_pdna_fastq)
     output:
-        counts="outs/pdna/feature_counts/pDNA.txt",
-        log="outs/pdna/feature_counts/pDNA.log"
-    shell:
-        "umi_tools count --per-contig --method {config[dedup_method]} "
-        "--stdin={input.bam} --stdout={output.counts} --log={output.log}"
+        counts="outs/pdna/feature_counts/pDNA.txt"
+    log: "outs/pdna/feature_counts/pDNA.log"
+    run:
+        if (hasattr(input, 'bam')):
+            os.system("umi_tools count --per-contig --method " + config['dedup_method'] +
+                "--stdin=" + input.bam + "--stdout=" + output.counts + "--log=" + log)
+        else:
+            with open(output.counts, mode='w') as output_file:
+                output_csv = csv.writer(output_file, delimiter='\t')
+                output_csv.writerow(['gene', 'count'])
+                with open(input.feature_ref,mode='r') as input_file:
+                    input_csv = csv.DictReader(input_file)
+                    for row in input_csv:
+                        output_csv.writerow([row['id'], '1'])
+                    input_file.close()
+                    output_file.close()
+
+
 
 
 rule bowtie_align_pdna:
