@@ -10,11 +10,11 @@ import subprocess
 
 def create_sample_dict(samplesheet):
 
-    samples = pd.read_csv(samplesheet).set_index("ID", drop=False)
+    samples = pd.read_csv(samplesheet).set_index("Feature_BC_ID", drop=False)
     
     sample_dict = {}
 
-    for sample, sample_id in zip(samples["Name"], samples["ID"]):
+    for sample, sample_id in zip(samples["Name"], samples["Feature_BC_ID"]):
 
         sample_dict[sample] = {'id': sample_id}
     
