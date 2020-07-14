@@ -99,7 +99,7 @@ rule get_read_stats:
 rule combine_feature_counts:
     input:
         expand("outs/feature_counts/{sample}.txt",sample=FEATURE_BC_IDS),
-        "outs/pdna/feature_counts/pDNA.txt" if config['pdna_fastq'] else []
+        "outs/pdna/feature_counts/pDNA.txt"
     output: "outs/feature_counts.txt"
     params:
         input_string = lambda wildcards, input: ','.join(input)

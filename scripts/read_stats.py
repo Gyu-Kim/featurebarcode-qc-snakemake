@@ -20,14 +20,17 @@ def create_sample_dict(samplesheet):
     
     return sample_dict
 
-def get_fastq_file(fastq_dir, sample_id):
-    fq = glob.glob(os.path.join(fastq_dir, "**", sample_id + "_*R1_*.fastq.gz"),
+def get_fastq_files(fastq_dir, sample_id):
+    r1 = glob.glob(os.path.join(fastq_dir, "**", sample_id + "_*R1_*.fastq.gz"),
         recursive=True)
-    if len(fq) == 0:
-        raise ValueError(sample_id + "has no matching input fastq file")
-    if len(fq) > 1:
-        raise ValueError(sample_id + "has more than one matching input fastq file")
-    return fq[0]
+    r2 = glob.glob(os.path.join(fastq_dir, "**", sample_id + "_*R2_*.fastq.gz"), 
+        recursive=True)
+    if len(r1) == 0:
+        raise ValueError(sample_id + " has no matching input fastq file")
+    if len(r1) != len(r2):
+        raise ValueError(sample_id + " has different numbers of R1 and R2 fastq files")
+    return r1
+
 
 
 def collect_dedup_count(counts_file):
@@ -99,14 +102,14 @@ def process_stats(args):
 
         for sample in samples_stats.keys():
 
-            fastq_file = get_fastq_file(args.fastq_dir, samples_stats[sample]['id'])
+            fastq_files = get_fastq_files(args.fastq_dir, samples_stats[sample]['id'])
             trim_file = os.path.join(args.trim_dir, sample + "_R1.fastq.gz")
             alns_file = os.path.join(args.alns_dir, sample + ".bam")
             # counts_files = glob.glob(os.path.join(counts_dir, sample + "*.txt"))
             counts_file = os.path.join(args.counts_dir, sample + ".txt")
             
 
-            samples_stats[sample]['reads'] = collect_fastq_count(fastq_file)
+            samples_stats[sample]['reads'] = sum([collect_fastq_count(fq) for fq in fastq_files])
             samples_stats[sample]['trimmed'] = collect_fastq_count(trim_file)
             samples_stats[sample]['mapped'] = collect_alns_count(alns_file)
             samples_stats[sample]['dedup'] = collect_dedup_count(counts_file)

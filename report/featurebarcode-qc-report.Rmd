@@ -297,61 +297,71 @@ sgrna_lib <- read_csv(snakemake@config$feature_ref) %>%
 #     mutate(target = str_match(feature, snakemake@config$target_regex)[,2])
 
 
+
+
 pDNA_counts <- feature_counts %>%
     filter(sample == "pDNA") %>%
     left_join(sgrna_lib, .) %>%
     mutate(count = ifelse(is.na(count), 0, count)) 
 
-num_features_per_target <- pDNA_counts %>%
-    filter(!is.na(target)) %>%
-    group_by(target) %>%
-    summarise(features = sum(count > 0)) %>%
-    mutate(nt = ifelse(target == "Non-Targeting", "non-targeting", "targeting"))
 
-num_features_per_target %>%
-    ggplot() +
-    facet_wrap( ~ nt, scales = "free") +
-    geom_histogram(aes(x = features, y = ..count..), binwidth = 1) +
-    geom_text(stat = "bin", binwidth = 1, vjust = -0.25,
-              aes(x = features, y = ..count.., label = ifelse(..count.. > 0, ..count.., ""))) +
-    scale_x_continuous(expand = expand_scale(add = 1)) +
-    # scale_x_continuous(breaks = min(num_features_per_target$features) + 1 :max(num_features_per_target$features) + 1,
-    #                    limits = c(-0.5, max(num_features_per_target$features)+0.5)) +
-    labs(x = "Number of features per target",
-         y = "Targets")
+if (snakemake@config$pdna_fastq != "") {
+
+    num_features_per_target <- pDNA_counts %>%
+        filter(!is.na(target)) %>%
+        group_by(target) %>%
+        summarise(features = sum(count > 0)) %>%
+        mutate(nt = ifelse(target == "Non-Targeting", "non-targeting", "targeting"))
+
+
+    num_features_per_target %>%
+        ggplot() +
+        facet_wrap( ~ nt, scales = "free") +
+        geom_histogram(aes(x = features, y = ..count..), binwidth = 1) +
+        geom_text(stat = "bin", binwidth = 1, vjust = -0.25,
+                  aes(x = features, y = ..count.., label = ifelse(..count.. > 0, ..count.., ""))) +
+        scale_x_continuous(expand = expand_scale(add = 1)) +
+        # scale_x_continuous(breaks = min(num_features_per_target$features) + 1 :max(num_features_per_target$features) + 1,
+        #                    limits = c(-0.5, max(num_features_per_target$features)+0.5)) +
+        labs(x = "Number of features per target",
+             y = "Targets")
+}
 
 ```
 
 ## Distribution of pDNA features
 
 ```{r fig.width=6, fig.height=5}
-message("pdna distribution")
+if (snakemake@config$pdna_fastq != "") {
 
-quantiles <- c(0.1, 0.25, 0.5, 0.75, 0.9)
-pDNA_quantiles <- quantile(pDNA_counts$count, quantiles)
+    message("pdna distribution")
 
-h_segments <- tibble(x = min(pDNA_counts$count[pDNA_counts$count > 0]), xend = pDNA_quantiles,
-                     y = quantiles, yend=quantiles)
-v_segments <- tibble(y = 0, yend = quantiles,
-                     x = pDNA_quantiles, xend = pDNA_quantiles)
-pDNA_quantile_segments <- bind_rows(h_segments, v_segments)
-pDNA_quantile_labels <- tibble(x = pDNA_quantiles, y = quantiles,
-                               label = paste0(names(pDNA_quantiles), " = ", round(pDNA_quantiles)))
+    quantiles <- c(0.1, 0.25, 0.5, 0.75, 0.9)
+    pDNA_quantiles <- quantile(pDNA_counts$count, quantiles)
 
-pDNA_counts %>% 
-    mutate(ecdf = ecdf(count)(count)) %>% 
-    filter(count > 0) %>% 
-    ggplot(aes(x=count, y=ecdf)) +
-    geom_segment(aes(x=x,xend=xend,y=y,yend=yend),
-                 data=pDNA_quantile_segments, lty=2, color="grey70") +
-    geom_text(aes(x=x, y=y, label=label), vjust=-0.5, hjust=1,
-              data = pDNA_quantile_labels) +
-    geom_line() +
-    scale_y_continuous(limits=c(0,1), breaks=pretty_breaks(5)) +
-    annotation_logticks(sides='b') +
-    scale_x_log10_pretty(limits = c(min(pDNA_counts$count[pDNA_counts$count > 0]),
-                                    max(pDNA_counts$count))) +
-    labs(x="pDNA feature counts", y="Cumulative fraction")
+    h_segments <- tibble(x = min(pDNA_counts$count[pDNA_counts$count > 0]), xend = pDNA_quantiles,
+                         y = quantiles, yend=quantiles)
+    v_segments <- tibble(y = 0, yend = quantiles,
+                         x = pDNA_quantiles, xend = pDNA_quantiles)
+    pDNA_quantile_segments <- bind_rows(h_segments, v_segments)
+    pDNA_quantile_labels <- tibble(x = pDNA_quantiles, y = quantiles,
+                                   label = paste0(names(pDNA_quantiles), " = ", round(pDNA_quantiles)))
+
+    pDNA_counts %>% 
+        mutate(ecdf = ecdf(count)(count)) %>% 
+        filter(count > 0) %>% 
+        ggplot(aes(x=count, y=ecdf)) +
+        geom_segment(aes(x=x,xend=xend,y=y,yend=yend),
+                     data=pDNA_quantile_segments, lty=2, color="grey70") +
+        geom_text(aes(x=x, y=y, label=label), vjust=-0.5, hjust=1,
+                  data = pDNA_quantile_labels) +
+        geom_line() +
+        scale_y_continuous(limits=c(0,1), breaks=pretty_breaks(5)) +
+        annotation_logticks(sides='b') +
+        scale_x_log10_pretty(limits = c(min(pDNA_counts$count[pDNA_counts$count > 0]),
+                                        max(pDNA_counts$count))) +
+        labs(x="pDNA feature counts", y="Cumulative fraction")
+}
 
 
 if (is.null(samplesheet)) knitr::knit_exit()
@@ -583,9 +593,6 @@ feature_logFC <- cells_per_target %>%
     ungroup() %>% 
     mutate(plot_group = ceiling(as.numeric(factor(sample))/samples_per_row))
     
-
-
-
 
 gg_list <- dlply(feature_logFC, .(plot_group),
                  function(df) {
