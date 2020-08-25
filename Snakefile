@@ -128,8 +128,9 @@ rule trim_reads_pdna:
         u6_promoter = config['trimming']['u6_promoter'],
         sgrna_scaffold = config['trimming']['sgrna_scaffold'],
         error_rate = config['trimming']['error_rate']
+        min_len = config['trimming']['min_len']
     shell:
-        "cutadapt -j {threads} -m 18 --discard-untrimmed "
+        "cutadapt -j {threads} -m {params.min_len} --discard-untrimmed "
         "-g \"{params.u6_promoter}...{params.sgrna_scaffold};max_error_rate={params.error_rate}\" "
         "-o {output} {input}"
 

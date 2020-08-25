@@ -16,6 +16,7 @@ trimming:
   sgrna_scaffold: GTTTAAGAGCTAAGCTGGAAACAGCATAGCAAGTTTAAAT
   u6_promoter: GTGGAAAGGACGAAACACCG
   error_rate: 0.2
+  min_len: 16
 
 cell_barcode:
   whitelist: assets/3M-february-2018.txt.gz
