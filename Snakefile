@@ -147,11 +147,12 @@ rule feature_counts_pdna:
     input: unpack(check_pdna_fastq)
     output:
         counts="outs/pdna/feature_counts/pDNA.txt"
-    log: "outs/pdna/feature_counts/pDNA.log"
+    log:
+        log="outs/pdna/feature_counts/pDNA.log"
     run:
         if (hasattr(input, 'bam')):
             os.system("umi_tools count --per-contig --method " + config['dedup_method'] +
-                "--stdin=" + input.bam + "--stdout=" + output.counts + "--log=" + log)
+                " --stdin=" + input.bam + "--stdout=" + output.counts + "--log=" + log.log)
         else:
             with open(output.counts, mode='w') as output_file:
                 output_csv = csv.writer(output_file, delimiter='\t')
