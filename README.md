@@ -18,12 +18,7 @@ This is a workflow built in snakemake to process a feature barcode library from 
 If you simply want to use this workflow, download and extract the [latest release](https://github.com/khavarilab/featurebarcode-qc/releases).
 If you intend to modify and further extend this workflow or want to work under version control, fork this repository as outlined in [Advanced](#advanced).
 
-Clone this repositiory into a directory
-
-```
-$ git clone git@github.com:khavarilab/featurebarcode-qc.git
-```
-
+Clone this repositiory and change into that directory.
 
 Ensure you have `conda` installed, then create and activate the environment
 
