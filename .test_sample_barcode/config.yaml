@@ -1,0 +1,22 @@
+# path to samplesheet
+samplesheet: samples.csv
+
+feature_ref: feature_ref.csv
+sample_ref: sample_ref.csv
+
+fastq_dir: fastqs
+
+pdna_fastq: ""
+
+threads: 4
+
+trimming:
+  tso: AAGCAGTGGTATCAACGCAGAGTACATGGG
+  sgrna_scaffold: GTTTAAGAGCTAAGCTGGAAACAGCATAGCAAGTTTAAAT
+  u6_promoter: GTGGAAAGGACGAAACACCG
+  error_rate: 0.2
+
+cell_barcode:
+  whitelist: assets/3M-february-2018.txt.gz
+
+dedup_method: unique # unique/percentile/cluster/adjacency/directional

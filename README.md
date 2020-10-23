@@ -24,20 +24,15 @@ Clone this repositiory into a directory
 $ git clone git@github.com:khavarilab/featurebarcode-qc.git
 ```
 
-Install a conda distribution, such as miniconda. On a shared computing cluster using modules, you may be able to run
+
+Ensure you have `conda` installed, then create and activate the environment
 
 ```
-$ module load miniconda
+$ conda env create -q -f=envs/conda.yaml -n featurebarcode-qc-snakemake
+$ conda activate featurebarcode-qc-snakemake
 ```
 
-Create and activate the conda environment
-
-```
-$ conda env create -q -f=envs/conda.yaml -n featurebarcode-qc
-$ conda activate featurebarcode-qc
-```
-
-Run the snakemake on test data
+Run the snakemake on a test dataset
 
 ```
 $ snakemake --directory .test
@@ -50,12 +45,15 @@ Examine the outputs of the workflow in the directory ```.test/outs/```
 
 Configure the workflow according to your needs via editing the file `config.yaml`. This includes the path to the fasta file of reference feature barcodes, the directory of fastq files, location of plasmid library sequencing, and how targets are specified in the names of the features.
 
+See the `.test_pdna_only` directory for an example of how to run an analysis on just the plasmid sequencing.
+See the `.test_sample_barcode` directory for an example of how to run an analysis if your features sequenced include sample barcodes.
+
 #### Step 3: Execute workflow
 
 Ensure the correct conda environment is active with
 
 ```
-$ conda activate featurebarcode-qc
+$ conda activate featurebarcode-qc-snakemake
 ```
 
 Test your configuration by performing a dry-run via

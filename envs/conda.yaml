@@ -271,4 +271,3 @@ dependencies:
   - tk=8.6.9
   - jpeg=9c
   - bwidget=1.9.11
-prefix: /Users/rmmeyers/miniconda3/envs/featurebarcode-qc-snakemake
