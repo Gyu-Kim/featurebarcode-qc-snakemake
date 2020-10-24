@@ -18,15 +18,13 @@ install:
   - conda config --add channels bioconda
   # create snakemake env
   - conda env create -q -f=envs/conda.yaml -n featurebarcode-qc-snakemake  python=$TRAVIS_PYTHON_VERSION
-  # - conda create -q -n snakemake snakemake python=$TRAVIS_PYTHON_VERSION
-  # add additional stuff to setup below
+  #- source activate snakemake
+  - source activate featurebarcode-qc-snakemake
 
 script:
-  #- source activate snakemake
   # run the workflow
   # put a test case into the subfolder .test (e.g., use https://github.com/snakemake-workflows/ngs-test-data as a submodule)
   #- snakemake --use-conda --directory .test
-  - conda activate featurebarcode-qc-snakemake
   - snakemake --directory .test
   - snakemake --directory .test_pdna_only
   - snakemake --directory .test_sample_barcode
