@@ -1,6 +1,6 @@
-ID,Name,Condition
-D0-1,Day0-1,Day0
-D0-2,Day0-2,Day0
-D3-1,Day3-1,Day3
-D3-2,Day3-2,Day3
+Name,Condition,Feature_BC_ID
+Day0-1,Day0,D0-1
+Day0-2,Day0,D0-2
+Day3-1,Day3,D3-1
+Day3-2,Day3,D3-2
 
