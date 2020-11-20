@@ -34,7 +34,7 @@ jobs:
           activate-environment: featurebarcode-qc-snakemake
       
       - name: snakemake
-        uses: snakemake/snakemake-github-action@1.13.0
+        uses: snakemake/snakemake-github-action@v1.13.0
         with:
           # Working directory for the execution
           directory: .test
