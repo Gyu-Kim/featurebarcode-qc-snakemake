@@ -23,10 +23,10 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout
+      - uses: actions/checkout@v2
     
       - name: conda
-        uses: conda-incubator/setup-miniconda
+        uses: conda-incubator/setup-miniconda@v2.0.0
         with:
           python-version: 3.6
           channels: bioconda,conda-forge,defaults
@@ -34,9 +34,7 @@ jobs:
           activate-environment: featurebarcode-qc-snakemake
       
       - name: snakemake
-        # You may pin to the exact commit or the version.
-        # uses: snakemake/snakemake-github-action@bec01f7c79a2d86b2c11d81c53e06a1c7214a285
-        uses: snakemake/snakemake-github-action
+        uses: snakemake/snakemake-github-action@1.13.0
         with:
           # Working directory for the execution
           directory: .test
