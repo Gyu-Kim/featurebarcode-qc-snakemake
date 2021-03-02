@@ -32,17 +32,24 @@ jobs:
           channels: bioconda,conda-forge,defaults
           environment-file: envs/conda.yaml         
           activate-environment: featurebarcode-qc-snakemake
+
+      - name: Conda info
+        shell: bash -l {0}
+        run: |
+          conda info
+          conda list
       
       - name: snakemake
         uses: snakemake/snakemake-github-action@v1.13.0
         with:
+          # Additional steps to prepare the workflow for execution
+          stagein: 'conda activate featurebarcode-qc-snakemake'
           # Working directory for the execution
           directory: .test
           # Snakefile containing the workflow description
           snakefile: Snakefile
           # Additional Snakemake arguments to use
           args: # optional, default is 
-          # Additional steps to prepare the workflow for execution
-          stagein: # optional, default is 
+
 
       
