@@ -59,9 +59,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Combine multiple feature barcode count files')
 
-    parser.add_argument('sample_files', help='Comma-separated list of sample count files', type=str)
-
     parser.add_argument('out_file', help = 'Where to write the CSV output file', type=str)
+
+    parser.add_argument('sample_files', help='Comma-separated list of sample count files', type=str)
 
     # Optional arguments
 

@@ -106,7 +106,7 @@ rule combine_feature_counts:
         # input_string = ','.join(expand("outs/feature_counts/{sample}.txt", sample=SAMPLES.keys()) +
         #     ["outs/pdna/feature_counts/pDNA.txt"])
     shell:
-        "python scripts/combine_feature_counts.py {params.input_string} {output}"
+        "python scripts/combine_feature_counts.py {output} {params.input_string}"
 
 
 
