@@ -8,6 +8,7 @@ This is a workflow built in snakemake to process a feature barcode library from 
 ## Authors
 
 * Robin Meyers (@robinmeyers)
+* Some changes were made by Gyu Kim in this folk
 
 ## Usage
 
